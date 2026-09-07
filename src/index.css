@@ -1,0 +1,251 @@
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════
+   DESIGN TOKENS — CSS Custom Properties
+   Source: Stitch "EcoPoints Warm Minimalist"
+   ══════════════════════════════════════════ */
+@layer base {
+  :root {
+    /* ── Surface & Background ── */
+    --color-surface: #fbf9f2;
+    --color-surface-dim: #dcdad3;
+    --color-surface-bright: #fbf9f2;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f6f3ec;
+    --color-surface-container: #f0eee7;
+    --color-surface-container-high: #eae8e1;
+    --color-surface-container-highest: #e4e2db;
+    --color-on-surface: #1b1c18;
+    --color-on-surface-variant: #414844;
+    --color-inverse-surface: #30312c;
+    --color-inverse-on-surface: #f3f1ea;
+    --color-outline: #727974;
+    --color-outline-variant: #c1c8c2;
+    --color-surface-tint: #456556;
+    --color-background: #fbf9f2;
+    --color-on-background: #1b1c18;
+
+    /* ── Brand ── */
+    --color-primary: #1c3b2e;
+    --color-on-primary: #ffffff;
+    --color-primary-container: #1c3b2e;
+    --color-on-primary-container: #84a594;
+    --color-inverse-primary: #accebc;
+    --color-secondary: #2e694b;
+    --color-on-secondary: #ffffff;
+    --color-secondary-container: #b1f1ca;
+    --color-on-secondary-container: #346f51;
+    --color-secondary-fixed: #b1f1ca;
+    --color-secondary-fixed-dim: #96d4af;
+    --color-on-secondary-fixed: #002112;
+    --color-on-secondary-fixed-variant: #115135;
+    --color-tertiary: #14231a;
+    --color-on-tertiary: #ffffff;
+    --color-tertiary-container: #2a392f;
+    --color-on-tertiary-container: #91a295;
+    --color-tertiary-fixed: #d5e7d8;
+    --color-primary-fixed: #c7ebd8;
+    --color-primary-fixed-dim: #accebc;
+
+    /* ── Status & Accent ── */
+    --color-error: #ba1a1a;
+    --color-on-error: #ffffff;
+    --color-error-container: #ffdad6;
+    --color-on-error-container: #93000a;
+    --color-sky-tint: #DCE7FA;
+    --color-sunlit-ochre: #F5E9D3;
+    --color-sunlit-ochre-text: #6E4D12;
+    --color-coral-mist: #FBE0DC;
+    --color-coral-mist-text: #8A2A22;
+
+    /* ── Elevation ── */
+    --shadow-level-0: none;
+    --shadow-level-1: none;
+    --shadow-level-2: 0 4px 20px -2px rgba(28,59,46,0.05), 0 2px 6px -1px rgba(28,59,46,0.03);
+    --shadow-level-3: 0 16px 36px -4px rgba(28,59,46,0.12);
+
+    /* ── Motion ── */
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0.0, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.33, 1, 0.68, 1);
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 400ms;
+    --duration-count: 800ms;
+  }
+
+  /* ── Reset & Base ── */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: var(--color-on-surface);
+    background-color: var(--color-surface-container-high);
+    min-height: 100vh;
+    overscroll-behavior: none;
+    line-height: 1.6;
+  }
+
+  /* Vietnamese diacritics safety — extra line-height padding */
+  h1, h2, h3, h4, h5, h6, p, span, a, li, label {
+    overflow-wrap: break-word;
+  }
+
+  /* Hide scrollbar but keep scroll */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  button {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  input, select, textarea {
+    font-family: inherit;
+  }
+}
+
+/* ══════════════════════════════════════════
+   COMPONENT LAYER
+   ══════════════════════════════════════════ */
+@layer components {
+  /* ── Border Token ── */
+  .border-subtle {
+    border: 1px solid rgba(28, 59, 46, 0.08);
+  }
+
+  /* ── Focus Ring ── */
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-surface-container-lowest), 0 0 0 4px rgba(220, 238, 223, 0.8);
+  }
+
+  /* ── Elevation Surfaces ── */
+  .surface-level-0 { background: var(--color-surface-container-high); }
+  .surface-level-1 { background: var(--color-surface-container-low); }
+  .surface-level-2 {
+    background: var(--color-surface-container-lowest);
+    box-shadow: var(--shadow-level-2);
+  }
+  .surface-level-3 {
+    background: var(--color-surface-container-lowest);
+    box-shadow: var(--shadow-level-3);
+  }
+
+  /* ── Card Hover ── */
+  .card-hover {
+    transition: transform var(--duration-normal) var(--ease-standard),
+                box-shadow var(--duration-normal) var(--ease-standard);
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px -4px rgba(28,59,46,0.08), 0 4px 10px -2px rgba(28,59,46,0.05);
+  }
+
+  /* ── Button Active ── */
+  .btn-active:active {
+    transform: scale(0.98);
+  }
+
+  /* ── Material Icon Sizing ── */
+  .icon-sm { font-size: 18px; }
+  .icon-md { font-size: 20px; }
+  .icon-lg { font-size: 24px; }
+  .icon-xl { font-size: 28px; }
+
+  /* ── Skeleton Loader ── */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-container-low) 25%,
+      var(--color-surface-container) 50%,
+      var(--color-surface-container-low) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  /* ── Glassmorphic Nav ── */
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(28, 59, 46, 0.06);
+  }
+
+  /* ── Modal Backdrop ── */
+  .modal-backdrop {
+    background: rgba(28, 59, 46, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* ══════════════════════════════════════════
+   UTILITIES
+   ══════════════════════════════════════════ */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Vietnamese safe line heights */
+  .lh-vn-safe {
+    line-height: 1.7;
+  }
+
+  /* Max content width */
+  .w-content {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* ══════════════════════════════════════════
+   KEYFRAMES
+   ══════════════════════════════════════════ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
