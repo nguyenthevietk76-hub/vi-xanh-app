@@ -239,13 +239,13 @@ export default function Project() {
             <h2 className="text-headline-lg text-primary font-bold mt-space-xs tracking-tight">Về chúng tôi</h2>
           </div>
           <p className="text-body-lg text-on-surface-variant leading-relaxed max-w-3xl mb-space-2xl">
-            Ví Xanh được sáng lập năm 2023 bởi một nhóm sinh viên với mong muốn biến hành động bảo vệ môi trường thành thói quen hằng ngày, dễ tiếp cận với mọi người. Bằng cách tích hợp công nghệ ví điểm thưởng, chúng tôi trao gửi quyền năng phục hồi tự nhiên vào tay từng cá nhân.
+            Ví Xanh được sáng lập năm 2026 bởi một nhóm sinh viên với mong muốn biến hành động bảo vệ môi trường thành thói quen hằng ngày, dễ tiếp cận với mọi người. Bằng cách tích hợp công nghệ ví điểm thưởng, chúng tôi trao gửi quyền năng phục hồi tự nhiên vào tay từng cá nhân.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-space-lg mb-space-2xl">
             {[
-              { value: 2023, label: 'Năm thành lập' },
-              { value: 18, label: 'Thành viên nòng cốt' },
+              { value: 2026, label: 'Năm thành lập' },
+              { value: 5, label: 'Thành viên nòng cốt' },
               { value: 12, label: 'Tỉnh thành lan tỏa' },
             ].map((s, i) => (
               <motion.div
