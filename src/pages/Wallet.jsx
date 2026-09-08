@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { EXCHANGE_RATES, VOUCHERS } from '../data/mockData';
+import { EXCHANGE_RATES } from '../data/mockData';
 import WalletPointCounter from '../components/WalletPointCounter';
 import Button from '../components/Button';
 import Chip from '../components/Chip';
 import ScrollReveal from '../components/ScrollReveal';
 import CountUp from '../components/CountUp';
+import MyRealOrders from '../components/MyRealOrders';
 
 export default function Wallet() {
   const { user, wallet, transactions, impact, milestones, openTradeIn, vouchers } = useApp();
@@ -177,6 +178,8 @@ export default function Wallet() {
           </button>
         )}
       </ScrollReveal>
+
+      <MyRealOrders />
 
       {/* ═══ Milestones & Vouchers ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-xl mt-space-3xl">

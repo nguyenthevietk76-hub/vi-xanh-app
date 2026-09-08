@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import { WalletBadge } from './WalletPointCounter';
 import { useApp } from '../context/AppContext';
+import UserMenu from './UserMenu';
 
 const navItems = [
   { path: '/', label: 'Trang chủ' },
@@ -63,12 +64,7 @@ export default function TopNav() {
             )}
           </button>
 
-          <button className="hidden sm:inline-flex items-center justify-center px-space-lg py-space-xs bg-surface-container-lowest border border-outline-variant text-primary hover:bg-surface-container-low rounded-chip text-label-lg font-semibold transition-all shadow-subtle">
-            Đăng nhập
-          </button>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
-          </div>
+          <UserMenu />
         </div>
       </div>
     </header>

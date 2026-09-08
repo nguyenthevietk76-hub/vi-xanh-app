@@ -1,5 +1,8 @@
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { PRODUCTS, INITIAL_TRANSACTIONS, INITIAL_IMPACT, VOUCHERS, MILESTONES } from '../data/mockData';
+import { useAuth } from './AuthContext';
+import { db } from '../lib/firebase';
+import { doc, runTransaction, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // ── Initial State ──
 const initialState = {
@@ -192,18 +195,189 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { user, userPoints } = useAuth();
+
+  // P0-1: Nếu user đã đăng nhập, wallet.points lấy từ Firestore real-time;
+  // nếu chưa đăng nhập, giữ mock points 3240 cho trải nghiệm demo.
+  const walletWithRealPoints = useMemo(() => {
+    if (user && userPoints !== null) {
+      return {
+        points: userPoints,
+        equivalentVND: Math.round(userPoints / 450 * 100) * 1000,
+      };
+    }
+    return state.wallet;
+  }, [user, userPoints, state.wallet]);
 
   const tradeIn = useCallback((payload) => {
     dispatch({ type: ACTIONS.TRADE_IN, payload });
   }, []);
 
-  const redeemProduct = useCallback((product) => {
-    dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: product });
-  }, []);
+  const redeemProduct = useCallback(async (product) => {
+    // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
+    if (!product.brandId) {
+      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: product });
+      return;
+    }
 
-  const buyProduct = useCallback((payload) => {
-    dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
-  }, []);
+    if (!user) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Vui lòng đăng nhập để đổi sản phẩm này.' } });
+      return;
+    }
+
+    try {
+      // P0-1: Gộp transaction trừ kho + trừ điểm (atomicity — cùng thành công hoặc cùng thất bại)
+      await runTransaction(db, async (tx) => {
+        const productRef = doc(db, 'products', product.id);
+        const userRef = doc(db, 'users', user.uid);
+        const productSnap = await tx.get(productRef);
+        const userSnap = await tx.get(userRef);
+
+        if (!productSnap.exists()) throw new Error('Sản phẩm không còn tồn tại.');
+        if (!userSnap.exists()) throw new Error('Tài khoản không hợp lệ.');
+
+        const productData = productSnap.data();
+        const userData = userSnap.data();
+        const currentPoints = userData.points || 0;
+
+        if (currentPoints < product.points) throw new Error(`Bạn cần thêm ${product.points - currentPoints} điểm nữa để đổi sản phẩm này.`);
+        if ((productData.stock || 0) < 1) throw new Error('Sản phẩm đã hết hàng.');
+
+        // Trừ kho sản phẩm
+        tx.update(productRef, {
+          stock: productData.stock - 1,
+          weeklyRedeemed: (productData.weeklyRedeemed || 0) + 1,
+        });
+
+        // Trừ điểm người mua
+        tx.update(userRef, {
+          points: currentPoints - product.points,
+        });
+      });
+
+      // P0-2: Đơn mới tạo có status 'pending' (không phải 'completed')
+      await addDoc(collection(db, 'orders'), {
+        buyerId: user.uid,
+        buyerEmail: user.email || '',
+        buyerName: user.displayName || '',
+        productId: product.id,
+        productName: product.name,
+        productImage: product.image,
+        brandId: product.brandId,
+        brandName: product.brandName || '',
+        quantity: 1,
+        pointsUsed: product.points,
+        type: 'redeem',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      // P1-3: Thông báo cho brand có đơn đổi điểm mới
+      try {
+        await addDoc(collection(db, 'notifications', product.brandId, 'items'), {
+          type: 'order',
+          title: 'Đơn đổi điểm mới!',
+          message: `${user.displayName || 'Khách hàng'} vừa đổi 1 x "${product.name}".`,
+          link: '/brand/dashboard',
+          readAt: null,
+          createdAt: serverTimestamp(),
+        });
+      } catch (errNotif) {
+        console.warn('Không thể tạo thông báo đổi điểm:', errNotif);
+      }
+
+      // Dispatch mock action cho local UI update (toast, transaction log)
+      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: product });
+    } catch (err) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đổi sản phẩm thất bại, thử lại sau.' } });
+    }
+  }, [user]);
+
+  const buyProduct = useCallback(async (payload) => {
+    const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = payload;
+
+    // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
+    if (!product.brandId) {
+      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
+      return;
+    }
+
+    if (!user) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Vui lòng đăng nhập để đặt mua sản phẩm này.' } });
+      return;
+    }
+
+    try {
+      // P0-1: Gộp transaction trừ kho + cộng bonus points (atomicity)
+      await runTransaction(db, async (tx) => {
+        const productRef = doc(db, 'products', product.id);
+        const userRef = doc(db, 'users', user.uid);
+        const productSnap = await tx.get(productRef);
+        const userSnap = await tx.get(userRef);
+
+        if (!productSnap.exists()) throw new Error('Sản phẩm không còn tồn tại.');
+        if (!userSnap.exists()) throw new Error('Tài khoản không hợp lệ.');
+
+        const productData = productSnap.data();
+        const userData = userSnap.data();
+
+        if ((productData.stock || 0) < quantity) throw new Error(`Chỉ còn ${productData.stock || 0} sản phẩm trong kho.`);
+
+        // Trừ kho sản phẩm
+        tx.update(productRef, {
+          stock: productData.stock - quantity,
+          weeklyRedeemed: (productData.weeklyRedeemed || 0) + quantity,
+        });
+
+        // Cộng bonus points cho người mua
+        tx.update(userRef, {
+          points: (userData.points || 0) + bonusPoints,
+        });
+      });
+
+      const totalVND = (product.priceVND || 0) * quantity;
+
+      // P0-2: Đơn mới tạo có status 'pending'
+      await addDoc(collection(db, 'orders'), {
+        buyerId: user.uid,
+        buyerEmail: user.email || '',
+        buyerName: customerInfo.name || user.displayName || '',
+        buyerPhone: customerInfo.phone || '',
+        buyerAddress: customerInfo.address || '',
+        productId: product.id,
+        productName: product.name,
+        productImage: product.image,
+        brandId: product.brandId,
+        brandName: product.brandName || '',
+        quantity,
+        priceVND: product.priceVND || 0,
+        totalVND,
+        pointsEarned: bonusPoints,
+        paymentMethod,
+        type: 'buy',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      // P1-3: Thông báo cho brand có đơn mua hàng mới
+      try {
+        await addDoc(collection(db, 'notifications', product.brandId, 'items'), {
+          type: 'order',
+          title: 'Đơn hàng mới!',
+          message: `${customerInfo.name || user.displayName || 'Khách hàng'} vừa đặt mua ${quantity} x "${product.name}".`,
+          link: '/brand/dashboard',
+          readAt: null,
+          createdAt: serverTimestamp(),
+        });
+      } catch (errNotif) {
+        console.warn('Không thể tạo thông báo đơn hàng mới:', errNotif);
+      }
+
+      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
+    } catch (err) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đặt mua thất bại, thử lại sau.' } });
+    }
+  }, [user]);
 
   const openPurchaseModal = useCallback((product) => {
     dispatch({ type: ACTIONS.OPEN_PURCHASE_MODAL, payload: product });
@@ -240,6 +414,7 @@ export function AppProvider({ children }) {
 
   const value = {
     ...state,
+    wallet: walletWithRealPoints, // P0-1: điểm thật khi đăng nhập, mock khi chưa
     tradeIn,
     redeemProduct,
     buyProduct,

@@ -26,8 +26,8 @@ export default function PurchaseModal() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      buyProduct({
+    setTimeout(async () => {
+      await buyProduct({
         product,
         quantity,
         customerInfo,

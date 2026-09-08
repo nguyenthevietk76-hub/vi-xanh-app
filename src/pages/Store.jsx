@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CATEGORIES, FILTER_TABS } from '../data/mockData';
 import { WalletBadge } from '../components/WalletPointCounter';
@@ -7,10 +7,25 @@ import Chip from '../components/Chip';
 import ScrollReveal from '../components/ScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../lib/firebase';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 
 export default function Store() {
-  const { products, wallet, cart, openPurchaseModal } = useApp();
+  const { products: mockProducts, wallet, cart, openPurchaseModal } = useApp();
   const navigate = useNavigate();
+
+  // P2-1: Giới hạn query sản phẩm do brand đăng và lắng nghe real-time
+  const [brandProducts, setBrandProducts] = useState([]);
+  useEffect(() => {
+    const q = query(collection(db, 'products'), where('status', '==', 'active'), limit(60));
+    const unsub = onSnapshot(q, (snap) => {
+      setBrandProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
+  // Gộp sản phẩm demo (mock) với sản phẩm thật từ brand — sản phẩm brand hiện lên đầu
+  const products = useMemo(() => [...brandProducts, ...mockProducts], [brandProducts, mockProducts]);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
@@ -34,6 +49,20 @@ export default function Store() {
 
     return result;
   }, [products, activeTab, selectedCategory, sortBy]);
+
+  // P2-1: Phân trang sản phẩm
+  const ITEMS_PER_PAGE = 9;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedCategory, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
 
   // Countdown timer for flash sale
   const [countdown] = useState({ h: 2, m: 14, s: 40 });
@@ -169,7 +198,7 @@ export default function Store() {
             className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-space-lg"
           >
             <AnimatePresence>
-              {filtered.map(product => (
+              {paginatedProducts.map(product => (
                 <motion.div
                   key={product.id}
                   layout
@@ -191,21 +220,39 @@ export default function Store() {
             </div>
           )}
 
-          {/* Pagination */}
-          <div className="flex items-center justify-center gap-space-xs mt-space-3xl">
-            {[1, 2, 3].map(page => (
+          {/* P2-1: Phân trang động */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-space-xs mt-space-3xl">
               <button
-                key={page}
-                className={`w-10 h-10 rounded-full text-label-lg font-semibold transition-all
-                  ${page === 1 ? 'bg-primary text-on-primary' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low border border-outline-variant'}`}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low border border-outline-variant flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Trang trước"
               >
-                {page}
+                <span className="material-symbols-outlined icon-sm">arrow_back</span>
               </button>
-            ))}
-            <button className="w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low border border-outline-variant flex items-center justify-center">
-              <span className="material-symbols-outlined icon-sm">arrow_forward</span>
-            </button>
-          </div>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-10 h-10 rounded-full text-label-lg font-semibold transition-all
+                    ${page === currentPage ? 'bg-primary text-on-primary shadow-subtle' : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low border border-outline-variant'}`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low border border-outline-variant flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Trang tiếp"
+              >
+                <span className="material-symbols-outlined icon-sm">arrow_forward</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

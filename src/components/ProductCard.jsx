@@ -9,6 +9,8 @@ export default function ProductCard({ product, className = '' }) {
   const pointsNeeded = product.points - wallet.points;
   const progressPercent = Math.min((wallet.points / product.points) * 100, 100);
   const bonusPoints = Math.max(20, Math.round(((product.priceVND || 100000) * 0.05) / 100) * 10);
+  // Chỉ sản phẩm brand thật (có brandId, tồn kho lấy real-time từ Firestore) mới cần chặn khi hết hàng
+  const outOfStock = Boolean(product.brandId) && (product.stock || 0) <= 0;
 
   const badgeMap = {
     sale: { label: `-${product.salePercent || 15}%`, variant: 'sale' },
@@ -69,7 +71,9 @@ export default function ProductCard({ product, className = '' }) {
             <span className="text-label-sm text-on-surface font-semibold">{product.rating}</span>
             <span className="text-label-sm text-on-surface-variant">({product.reviews})</span>
           </div>
-          <span className="text-label-sm text-secondary font-medium">{product.category}</span>
+          <span className="text-label-sm text-secondary font-medium">
+            {product.category}{product.brandName ? ` · ${product.brandName}` : ''}
+          </span>
         </div>
 
         {/* Name */}
@@ -135,11 +139,12 @@ export default function ProductCard({ product, className = '' }) {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => openPurchaseModal(product)}
+              disabled={outOfStock}
               className="flex-1 h-11 bg-primary text-on-primary rounded-input font-bold text-label-lg
-                       hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 shadow-subtle"
+                       hover:bg-secondary hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 shadow-subtle disabled:opacity-50 disabled:pointer-events-none"
             >
               <span className="material-symbols-outlined text-[19px]">shopping_cart</span>
-              Mua ngay
+              {outOfStock ? 'Hết hàng' : 'Mua ngay'}
             </motion.button>
 
             {/* Quick Add to Cart Button */}
@@ -158,11 +163,12 @@ export default function ProductCard({ product, className = '' }) {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => redeemProduct(product)}
+              disabled={outOfStock}
               className="w-full h-9 bg-primary-container text-primary hover:bg-[#cbe3ce] rounded-nested font-semibold text-label-md
-                       transition-colors duration-200 flex items-center justify-center gap-1.5 border border-primary/20"
+                       transition-colors duration-200 flex items-center justify-center gap-1.5 border border-primary/20 disabled:opacity-50 disabled:pointer-events-none"
             >
               <span className="material-symbols-outlined text-[16px]">eco</span>
-              Đổi bằng {product.points.toLocaleString('vi-VN')} điểm
+              {outOfStock ? 'Hết hàng' : `Đổi bằng ${product.points.toLocaleString('vi-VN')} điểm`}
             </motion.button>
           ) : (
             <motion.button
