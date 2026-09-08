@@ -81,28 +81,50 @@ export default function Store() {
         </div>
       </div>
 
-      {/* Flash Sale Banner */}
+      {/* Flash Sale Banner with Eco Image */}
       <ScrollReveal preset="fade-up">
-        <div className="bg-gradient-to-r from-primary to-tertiary-container rounded-hero p-space-xl md:p-space-2xl flex flex-col md:flex-row items-center justify-between gap-space-md mb-space-xl text-on-primary">
-          <div className="flex items-center gap-space-md">
-            <span className="material-symbols-outlined text-[28px] text-secondary-fixed">bolt</span>
-            <div>
-              <h3 className="text-title-lg font-bold">Flash sale xanh — giảm đến 30%</h3>
-              <p className="text-body-sm text-[#DCEEDF]/80">Số lượng có hạn, làm mới không gian sống bền vững</p>
-            </div>
+        <div className="relative overflow-hidden rounded-hero mb-space-xl text-on-primary shadow-level-2">
+          {/* Background Image with Gradient Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="/images/banners/banner_flash_sale.jpg" 
+              alt="Flash Sale Xanh" 
+              className="w-full h-full object-cover object-center filter brightness-[0.35] saturate-125 scale-105 transition-transform duration-700 hover:scale-100"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-tertiary-container/85 mix-blend-multiply" />
           </div>
-          <div className="flex items-center gap-space-md">
-            <div className="flex items-center gap-1">
-              {[countdown.h, countdown.m, countdown.s].map((v, i) => (
-                <span key={i} className="flex items-center gap-1">
-                  <span className="bg-white/20 backdrop-blur-sm rounded-nested px-2.5 py-1 text-title-md font-bold">{String(v).padStart(2, '0')}</span>
-                  {i < 2 && <span className="text-title-md font-bold">:</span>}
-                </span>
-              ))}
+
+          <div className="relative z-10 p-space-xl md:p-space-2xl flex flex-col md:flex-row items-center justify-between gap-space-md backdrop-blur-[1px]">
+            <div className="flex items-center gap-space-md">
+              <div className="w-12 h-12 rounded-full bg-secondary-fixed/20 border border-secondary-fixed/40 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[28px] text-secondary-fixed">bolt</span>
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-fixed/25 text-secondary-fixed text-[11px] font-bold uppercase tracking-wider mb-1">
+                  Ưu đãi có hạn
+                </div>
+                <h3 className="text-title-lg md:text-headline-sm font-bold">Flash sale xanh — giảm đến 30%</h3>
+                <p className="text-body-sm text-[#DCEEDF]/90">Số lượng có hạn, làm mới không gian sống bền vững với điểm thưởng</p>
+              </div>
             </div>
-            <button className="text-label-lg font-semibold text-secondary-fixed hover:text-on-primary transition-colors flex items-center gap-1">
-              Xem tất cả <span className="material-symbols-outlined icon-sm">arrow_forward</span>
-            </button>
+            <div className="flex items-center gap-space-md flex-wrap justify-center">
+              <div className="flex items-center gap-1">
+                {[countdown.h, countdown.m, countdown.s].map((v, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    <span className="bg-white/20 backdrop-blur-md rounded-nested px-3 py-1.5 text-title-md font-bold text-white shadow-sm border border-white/20">
+                      {String(v).padStart(2, '0')}
+                    </span>
+                    {i < 2 && <span className="text-title-md font-bold text-white">:</span>}
+                  </span>
+                ))}
+              </div>
+              <button 
+                onClick={() => setActiveTab('sale')}
+                className="px-4 py-2 bg-secondary-fixed text-primary rounded-input font-bold text-label-md hover:bg-white transition-all duration-200 flex items-center gap-1 shadow-sm"
+              >
+                Xem tất cả <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            </div>
           </div>
         </div>
       </ScrollReveal>

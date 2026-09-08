@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import Chip from './Chip';
 
 export default function ProductCard({ product, className = '' }) {
   const { wallet, redeemProduct, addToCart, openPurchaseModal, openTradeIn } = useApp();
+  const [hasError, setHasError] = useState(false);
 
   const canAfford = wallet.points >= product.points;
   const pointsNeeded = product.points - wallet.points;
@@ -26,7 +28,7 @@ export default function ProductCard({ product, className = '' }) {
       whileHover={{ y: -3 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       className={`
-        bg-surface-container-lowest rounded-card overflow-hidden
+        group bg-surface-container-lowest rounded-card overflow-hidden
         shadow-level-2 hover:shadow-level-2-hover
         transition-all duration-200 flex flex-col border border-outline-variant/30
         ${className}
@@ -35,10 +37,11 @@ export default function ProductCard({ product, className = '' }) {
       {/* Image Container */}
       <div className="relative bg-surface-container-low p-3 m-3 rounded-nested aspect-square overflow-hidden">
         <img
-          src={product.image}
+          src={hasError ? '/images/products/binh_giu_nhiet.jpg' : (product.image || '/images/products/binh_giu_nhiet.jpg')}
           alt={product.name}
           loading="lazy"
-          className="w-full h-full object-cover rounded-nested-sm"
+          onError={() => setHasError(true)}
+          className="w-full h-full object-cover rounded-nested-sm transition-transform duration-300 group-hover:scale-105"
         />
         {/* Badge */}
         {badge && (

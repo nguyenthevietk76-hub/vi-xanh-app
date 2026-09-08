@@ -3,22 +3,25 @@
    Products, Transactions, Impact, Exchange Rates
    ══════════════════════════════════════════ */
 
-// ── Product images from Stitch CDN ──
-const STITCH_IMG = {
-  binh: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJqc4xXp39sOlVaJVPrmRr2rqhQIQCKxdKiDG5aBW5LiXTHfOdATm7Lz9fvW5aR8YnWuKV7JdGb7eNjSjR3NXX4C_-L1MebbDVVV-HqJnDWA25oWw2lfYN99-nz1nrJlpRCz5h3Ec7-5AexfxsyRm2VFgvEEp7_y6BQG5rWv3E0vXK_-pNqndshDN1Zci08NeXbYH_1NfxH7vJvFcZG-Ot0RnqKwFkPU-Ny2TDZfqk7WbRkBbcx7p',
-  tui: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1gLz8rJw4kLW9LxFhz2c_dQiIdVx5a2WHfnypA3DT4R9OM9-o1rh2_xLi1rW8h5BHCnfqBMlnvL-2UrHPOlKMPGHZZC2dPTPtaiqNdHF-i19oHGK7IyRqGEcQiAMrWi9xGLGwCJqE7YKlWfjG1OIQZV1bC-4dVkZ7IZd-UDJ7p-uEpmY2v1HWVTpLQ8yfyJHnxVYnnFJUAiEvIAT9GCFMBYVxD3POEQ1bj1U2NR5CXkBi-Fvt5M',
-  chau: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBGqG6f4P8p9DhGQaxhLEH4YaY-Mc8dHCXU1lPoI1_hR_s-VJz8iQ3vXs4c0HuN8w2wK18lHhiUwWHB80s5ysC_3WkTK-Hw5F_6s_lVGvZxLwx-3lqkVeHcaRJt8qUE5P1wVU3KqUn0FN5gqSPx5LiHBpfM2k5pZF1g_C6Z8kkPpIUMNv5wOqm9JO6CjGp9bC2-MgIqMmPpPZrJcFt8CaD1_sVGi9T3OxpfQtN7m2K3X22-M-MZco',
-  ong_hut: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB8deBNXkl2xkwwgcM6cQo2gv4T2yl4XNAoVmqBd5z5qm2iHSPvLUKnInRNPr8zcTJGC2FE4UNQBDyUHoaOD4oPekLAYHqtFD3y_sOhKzs6aUHcvpZaHq8WCFjzunK4L-6lzp6XnY3qjjfL1NVqWHMYRe_yqrIvF8zWW7NxFXfx2U7C0qzEXFBf71hbVXqd4MwmLwjbgLNwIcvEHINNPiPp7F3qDy7amZ-YGxIWdTPCf3l7ky7qMw',
-  vong_tay: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCQkJxjxVkZR08_5h4jN1fZGTKq7VmCKJYvnEefpXBJSJ-zxN2p8nxj5WYzNM2BvV_PkM2H21IjqMU9RORBOWfFG9wuPpCjD_3a1bJ7fL5fCfv8kH2UlBGNwdHqEXNYGPnP6FATfKSdL8VxMF2cFTfJEO9VcLDhQzpyDcqxJeKwJpuwlqCGf3cEBBuXoqfWR88xxB39TyK8dXh2m5X4P7RSMgOhJQzm9_cqVeHlFkxVTVnrp_6D8s',
-  so_tay: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAz_Z3C_aS8SYaelWTSxpzWJ2lrQZhL1pMRqy81UHXqfZuwA4WqhJqjGGg8RVdh1Q3OZO1S1fJj4fHkxPvvP2v3qdV9HaLpGR2MhHXPLDjwJPHr5PbnNHuv8FnJlSLSIw0vXnA23IIVvPKxnCgIuLcXkA77cqiX64P5ZMrKlPX1Lxjh2W4nSTYyWLQAm2RAlG7b2zMxW9RfkJJf-8CPNC92k0E-T3pchBvLaP9N9bnmWHBKjJqYFg',
-  nen: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBo1Fk8Y3JjXIVxwEqnwrFdMNrBxz_FeR2T2VrDjycb7LdHn3gB9VpbJB4tH-sXJoVLFDXlVNQJPVrpzTe_VWExQ2LPdlMEfPBwfWOelA1a4dH6Vs3bVMzWp23V6eFi6kHZcSBp6LFTkxOMVnfK3r2XaJWQLBJhBOKl7rHzKxGxGCIj-eSN-FNDxq1T-bj0kQSfGaH6VL2Xk0OhSd18F5Mde8dGvmMNjsqxYYi3hPMkBPzLr9lhM',
-  khan: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAoMi3y8LH-3-z1VD9hTJoOOlUvNfLK3hPIrVCMRX2TcG7EPOjLDeBhCy2LZ5I3Fhgp5rjMcSiC6pKL2gJpylmS-2gvX2ggEr3xdFyh1uxVVQPDi8rDuOOY02wy-aCkF3fVMsz0a_MiipCNQFxR9c-8RA5bMvkbMz4fAv7VumHIx0ysYb3jRXFBOCB2fH-1x2qAq_zdfhJ2khdOG2vCxN8gCdIxm6LiPhLcyqB1pMz5nqnEy_0YE',
-  tui_luoi: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCNT_t2VW79Fhx7aLlIY_I-c5_bEi5hQBdg4WKlsJqYnR06RvvKIBT7gd2JsG32wUwHvPWfuGsq6h4aHnrH2dpjYCnbKn8S0mDcAZdMNaZxNqhKlkdlUB2zzPWuTVG5nP28KRfXkp9MuBFUQgKcwBZrJBWYCVOqkANF8S-ufSqPUcJpTAXr9HhAc93LPlCIE4U-uWr5a9x1ssjuVFNl93C_jXlj1sKxEfDGpX-dn6R_w9W52XHSg',
-  thia: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBjK2NUVjvlZNijrdZN2yxxLqwPAj3oeKqmGR7OBCMxJHUTD-0w4IZUShSb3Mfqt_cZBKOOxmQ9-lEOvp5u9gW4FLZqPf-j2F0z-p_8pBH4F3vS-RXXhMepbWlXxrRaQF2JrK5FKXwqB7WjfMEfuB3xGgXkrUFaJbBhWMivhG4hpnWlcLRj4fNEuJgX_D5VWIcVTqc_6FHePXNBqJGlDJn6fxKw5b1xzfqaK_EBHhCqQyXw_9pkE',
-  thung_rac: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXIJ-XWiHDPPT7GzUXVCJwqvgX9acbLGVkXfuaHC7M_dVYNnpfNxSzNxfFNYkINJHflqSKT-CDUlF4p6WRKMcWfRNI0TtJyJIh_VhZLnluN3yEuxJR8Fp_7PY4swCmNYsqQ5z-f3dqzJHKPVSoKsv2vdI_4OMF6z97EIRGkKfuBPkgNHMY9z2HaOMOv-6AcwLcMeF6H6-DmGBdP2c9W5-dKkx2UZbm2cbAkTFUd1MYyQlY9tdjP4',
-  den: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBbYn71BwYpbJaxqX_E9SFk6Cp-ER3gWrZ2iyWaJ3eJdNT2b67VL8t3vO1lG_jEhYmNJo1pu9B-7-5UBHeBLh4s3ORaO5NU5CRb3R1vxfPOJEX5I9bSwG41oQhsQj4T1UNNmDUL51mYV3D--4R5t_3xnXtVLhKA2MqSTAK19Lrr7CqtbVhAT6rqBDNiA4qZXqIyS8kUgdCz3KqC68Z4qSdgc8b8C2qjuQcIjrr5t3JjrAFpvIvDsg',
-  hero_collection: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBedrXkDwnbuXtA7NXRoNvwdmVLTEA92SaCQJcW2cZxNeQbVHxP1_eiUXtPdLJal30Gax8zhhNi9nq6H4yEOxy7nMFCZptAOzyZNlErSTJUduxy6fd6P7cTyf50T9GRjzVAFns2lHbH1Qc03z_-QnrWvzuUBlo_rZUIaHgwB8am3nBNUF2Fzi_nsuJpCXQSRqEDXhnJf1NWIvF5kWonuc-AXcRvricqDqDdpSqe8OGYU_h3liDXnVHl',
+// ── Product images (High-resolution Eco Assets) ──
+const PRODUCT_IMG = {
+  binh: '/images/products/binh_giu_nhiet.jpg',
+  tui: '/images/products/tui_canvas.jpg',
+  chau: '/images/products/chau_sen_da.jpg',
+  ong_hut: '/images/products/ong_hut_inox.jpg',
+  vong_tay: '/images/products/vong_tay_handmade.jpg',
+  so_tay: '/images/products/so_tay_tai_che.jpg',
+  nen: '/images/products/nen_sap_ong.jpg',
+  khan: '/images/products/khan_soi_tre.jpg',
+  tui_luoi: '/images/products/tui_luoi_cotton.jpg',
+  thia: '/images/products/bo_thia_go_dua.jpg',
+  thung_rac: '/images/products/thung_rac_phan_loai.jpg',
+  den: '/images/products/den_nang_luong.jpg',
+  banner_flash_sale: '/images/banners/banner_flash_sale.jpg',
+  hero_collection: '/images/banners/banner_flash_sale.jpg',
 };
+const STITCH_IMG = PRODUCT_IMG;
+
 
 // ── Exchange Rates ──
 export const EXCHANGE_RATES = [
