@@ -28,6 +28,22 @@ export default function Home() {
     <div className="flex flex-col w-full">
       {/* ═══ HERO ═══ */}
       <section className="relative w-full -mt-20 overflow-hidden bg-gradient-to-b from-[#0d2018] via-[#12281e] to-[#163327] text-on-primary">
+        {/* Background Video: Looping, hardware accelerated (GPU) & zero-lag */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-35 mix-blend-luminosity transform-gpu scale-105"
+        >
+          <source src="/videos/hero-bg.webm" type="video/webm" />
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+
+        {/* Contrast Overlay: Soft green tint to protect text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/80 via-[#0d2018]/50 to-[#163327]/90 pointer-events-none" />
+
         {/* Ambient radials */}
         <div className="absolute inset-0 pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
           <svg className="w-full h-full" fill="none" viewBox="0 0 1440 900">
