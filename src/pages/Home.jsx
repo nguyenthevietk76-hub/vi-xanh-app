@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
@@ -10,6 +11,15 @@ import ProductCard from '../components/ProductCard';
 export default function Home() {
   const { openTradeIn, wallet, products, impact } = useApp();
   const navigate = useNavigate();
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, []);
 
   // Products user can almost afford (within 200 points)
   const suggestedProducts = products
@@ -30,19 +40,18 @@ export default function Home() {
       <section className="relative w-full -mt-20 overflow-hidden bg-gradient-to-b from-[#0d2018] via-[#12281e] to-[#163327] text-on-primary">
         {/* Background Video: Looping, hardware accelerated (GPU) & zero-lag */}
         <video
+          ref={videoRef}
           autoPlay
           loop
           muted
           playsInline
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-35 mix-blend-luminosity transform-gpu scale-105"
-        >
-          <source src="/videos/hero-bg.webm" type="video/webm" />
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
+          preload="auto"
+          src="/videos/hero-bg.mp4"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-65 transform-gpu"
+        />
 
-        {/* Contrast Overlay: Soft green tint to protect text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/80 via-[#0d2018]/50 to-[#163327]/90 pointer-events-none" />
+        {/* Contrast Overlay: Soft tint ensuring text is easily readable while video shines */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/70 via-[#0d2018]/40 to-[#163327]/80 pointer-events-none" />
 
         {/* Ambient radials */}
         <div className="absolute inset-0 pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
