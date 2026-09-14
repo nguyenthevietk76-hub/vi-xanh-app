@@ -70,14 +70,7 @@ export default function Home() {
             </defs>
           </svg>
         </div>
-        {/* Topographic lines */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <svg className="w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 1200 800">
-            <path d="M-100 200 C300 280 600 120 1300 260" stroke="#b1f1ca" strokeDasharray="8 6" strokeWidth="1.5" />
-            <path d="M-100 360 C320 440 700 280 1300 420" stroke="#b1f1ca" strokeWidth="1" />
-            <path d="M-100 520 C250 600 780 440 1300 580" stroke="#b1f1ca" strokeDasharray="12 8" strokeWidth="1.2" />
-          </svg>
-        </div>
+
 
         <div className="relative z-10 max-w-content mx-auto px-margin-mobile md:px-margin-tablet lg:px-margin-desktop pt-40 pb-20 md:pt-48 md:pb-28 flex flex-col items-center text-center">
           {/* Badge */}

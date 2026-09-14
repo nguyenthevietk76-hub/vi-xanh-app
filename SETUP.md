@@ -28,6 +28,19 @@ VITE_FIREBASE_APP_ID=...
 
 Trên **Vercel**: vào Project Settings → Environment Variables → thêm đúng 6 biến trên.
 
+## 3b. Cấu hình nhận thanh toán qua VietQR
+Không cần đăng ký cổng thanh toán hay tài khoản doanh nghiệp — chỉ cần 1 tài khoản ngân hàng cá nhân đứng tên bạn (hoặc brand). Thêm 3 biến sau vào `.env` (và trên Vercel):
+
+```
+VITE_BANK_ID=vietcombank        # tên viết tắt hoặc mã BIN ngân hàng — tra tại https://api.vietqr.io/v2/banks
+VITE_BANK_ACCOUNT_NO=0123456789 # số tài khoản nhận tiền
+VITE_BANK_ACCOUNT_NAME=NGUYEN VAN A  # tên chủ tài khoản, KHÔNG dấu, viết hoa
+```
+
+Nếu bỏ trống 3 biến này, khách chọn "VietQR / CK" khi đặt hàng vẫn tạo được đơn (để bạn test), nhưng màn hình sẽ không hiện ảnh QR thật — chỉ hiện ghi chú nhắc bạn cấu hình.
+
+Sau khi khách quét mã và chuyển khoản, đơn hàng vẫn ở trạng thái "Chưa thanh toán" cho đến khi bạn (chủ brand) vào **Trang quản trị Brand → Đơn hàng nhận được**, kiểm tra đã nhận đúng số tiền trong app ngân hàng, rồi bấm **"Xác nhận đã nhận tiền"**. Đây là bước xác nhận thủ công vì dự án không có backend riêng để tự động đối soát với ngân hàng.
+
 ## 4. Publish Security Rules
 - **Firestore**: vào **Firestore Database → Rules**, dán nội dung file `firestore.rules`, bấm **Publish**
 - **Storage**: vào **Storage → Rules**, dán nội dung file `storage.rules`, bấm **Publish**
@@ -74,7 +87,10 @@ products/{id}         { name, description, category, priceVND, points, stock, im
 orders/{id}           { buyerId, buyerEmail, buyerName, buyerPhone, buyerAddress,
                         productId, productName, productImage, brandId, brandName,
                         quantity, priceVND, totalVND, pointsUsed, pointsEarned,
-                        paymentMethod, type: 'redeem'|'buy',
+                        paymentMethod: 'COD'|'VIETQR'|'MOMO',
+                        paymentStatus: 'cod'|'unpaid'|'paid',
+                        orderCode,   // mã ngắn dùng làm nội dung chuyển khoản, đối soát
+                        type: 'redeem'|'buy',
                         status: 'pending'|'confirmed'|'shipping'|'completed'|'cancelled',
                         createdAt }
 notifications/{uid}/items/{id}  { type, message, link, readAt, createdAt }

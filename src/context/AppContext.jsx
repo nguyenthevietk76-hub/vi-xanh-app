@@ -2,7 +2,8 @@ import { createContext, useContext, useReducer, useCallback, useMemo } from 'rea
 import { PRODUCTS, INITIAL_TRANSACTIONS, INITIAL_IMPACT, VOUCHERS, MILESTONES } from '../data/mockData';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
-import { doc, runTransaction, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, runTransaction, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { generateOrderCode } from '../lib/vietqr';
 
 // ── Initial State ──
 const initialState = {
@@ -139,18 +140,19 @@ function appReducer(state, action) {
       return { ...state, purchaseModalProduct: null };
 
     case ACTIONS.BUY_PRODUCT: {
-      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = action.payload;
-      const orderId = Math.floor(Math.random() * 9000 + 1000);
+      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50, orderCode } = action.payload;
       const totalVND = (product.priceVND || 0) * quantity;
       const newTransaction = {
         id: `t${Date.now()}`,
         type: 'buy',
-        desc: `Mua ${product.name} (x${quantity}) – Đơn hàng #VX-${orderId}`,
+        desc: `Mua ${product.name} (x${quantity}) – Đơn hàng #${orderCode}`,
         points: bonusPoints,
         date: new Date().toISOString(),
         productId: product.id,
         amountVND: totalVND,
         paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
+        orderCode,
         customerName: customerInfo.name,
       };
       const updatedProducts = state.products.map(p =>
@@ -165,10 +167,14 @@ function appReducer(state, action) {
         },
         products: updatedProducts,
         transactions: [newTransaction, ...state.transactions],
-        purchaseModalProduct: null,
+        // Modal đóng hay chuyển sang bước hiển thị QR do PurchaseModal tự quyết định,
+        // không tự đóng ở đây nữa (đơn hàng VietQR cần giữ modal để hiện mã QR).
         toast: {
           type: 'success',
-          message: `Đặt mua thành công "${product.name}"! +${bonusPoints} điểm xanh đã cộng vào ví.`,
+          message:
+            paymentMethod === 'COD'
+              ? `Đặt mua thành công "${product.name}"! +${bonusPoints} điểm xanh đã cộng vào ví.`
+              : `Đã tạo đơn "${product.name}"! Hoàn tất chuyển khoản để người bán xác nhận đơn.`,
         },
       };
     }
@@ -295,16 +301,20 @@ export function AppProvider({ children }) {
 
   const buyProduct = useCallback(async (payload) => {
     const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = payload;
+    // Mã đơn ngắn dùng làm nội dung chuyển khoản (đối chiếu với mã QR VietQR)
+    const orderCode = generateOrderCode();
+    const totalVND = (product.priceVND || 0) * quantity;
+    const payloadWithCode = { ...payload, orderCode };
 
     // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
     if (!product.brandId) {
-      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
-      return;
+      dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
+      return { orderCode, totalVND };
     }
 
     if (!user) {
       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Vui lòng đăng nhập để đặt mua sản phẩm này.' } });
-      return;
+      return null;
     }
 
     try {
@@ -335,9 +345,8 @@ export function AppProvider({ children }) {
         });
       });
 
-      const totalVND = (product.priceVND || 0) * quantity;
-
       // P0-2: Đơn mới tạo có status 'pending'
+      // paymentStatus: 'cod' = trả khi nhận hàng, 'unpaid' = chờ khách chuyển khoản (VietQR/MoMo)
       await addDoc(collection(db, 'orders'), {
         buyerId: user.uid,
         buyerEmail: user.email || '',
@@ -354,6 +363,8 @@ export function AppProvider({ children }) {
         totalVND,
         pointsEarned: bonusPoints,
         paymentMethod,
+        paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
+        orderCode,
         type: 'buy',
         status: 'pending',
         createdAt: serverTimestamp(),
@@ -373,11 +384,22 @@ export function AppProvider({ children }) {
         console.warn('Không thể tạo thông báo đơn hàng mới:', errNotif);
       }
 
-      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
+      dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
+      return { orderCode, totalVND };
     } catch (err) {
       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đặt mua thất bại, thử lại sau.' } });
+      return null;
     }
   }, [user]);
+
+  // Brand xác nhận đã nhận được chuyển khoản cho 1 đơn VietQR/MoMo (chỉ đổi field paymentStatus)
+  const confirmOrderPayment = useCallback(async (order) => {
+    try {
+      await updateDoc(doc(db, 'orders', order.id), { paymentStatus: 'paid' });
+    } catch (err) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Không thể xác nhận thanh toán, thử lại sau.' } });
+    }
+  }, []);
 
   const openPurchaseModal = useCallback((product) => {
     dispatch({ type: ACTIONS.OPEN_PURCHASE_MODAL, payload: product });
@@ -418,6 +440,7 @@ export function AppProvider({ children }) {
     tradeIn,
     redeemProduct,
     buyProduct,
+    confirmOrderPayment,
     openPurchaseModal,
     closePurchaseModal,
     addToCart,

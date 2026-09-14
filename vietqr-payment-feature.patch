@@ -1,0 +1,587 @@
+diff --git a/.env.example b/.env.example
+index 23f7e25..d039b92 100644
+--- a/.env.example
++++ b/.env.example
+@@ -4,3 +4,10 @@ VITE_FIREBASE_PROJECT_ID=
+ VITE_FIREBASE_STORAGE_BUCKET=
+ VITE_FIREBASE_MESSAGING_SENDER_ID=
+ VITE_FIREBASE_APP_ID=
++
++# VietQR — thông tin tài khoản ngân hàng nhận thanh toán (dùng để tạo mã QR chuyển khoản)
++# VITE_BANK_ID: mã BIN hoặc tên viết tắt ngân hàng, vd: vietcombank, mbbank, 970436...
++#   Tra danh sách tại https://api.vietqr.io/v2/banks
++VITE_BANK_ID=
++VITE_BANK_ACCOUNT_NO=
++VITE_BANK_ACCOUNT_NAME=
+diff --git a/SETUP.md b/SETUP.md
+index 35e187f..49bcd90 100644
+--- a/SETUP.md
++++ b/SETUP.md
+@@ -28,6 +28,19 @@ VITE_FIREBASE_APP_ID=...
+ 
+ Trên **Vercel**: vào Project Settings → Environment Variables → thêm đúng 6 biến trên.
+ 
++## 3b. Cấu hình nhận thanh toán qua VietQR
++Không cần đăng ký cổng thanh toán hay tài khoản doanh nghiệp — chỉ cần 1 tài khoản ngân hàng cá nhân đứng tên bạn (hoặc brand). Thêm 3 biến sau vào `.env` (và trên Vercel):
++
++```
++VITE_BANK_ID=vietcombank        # tên viết tắt hoặc mã BIN ngân hàng — tra tại https://api.vietqr.io/v2/banks
++VITE_BANK_ACCOUNT_NO=0123456789 # số tài khoản nhận tiền
++VITE_BANK_ACCOUNT_NAME=NGUYEN VAN A  # tên chủ tài khoản, KHÔNG dấu, viết hoa
++```
++
++Nếu bỏ trống 3 biến này, khách chọn "VietQR / CK" khi đặt hàng vẫn tạo được đơn (để bạn test), nhưng màn hình sẽ không hiện ảnh QR thật — chỉ hiện ghi chú nhắc bạn cấu hình.
++
++Sau khi khách quét mã và chuyển khoản, đơn hàng vẫn ở trạng thái "Chưa thanh toán" cho đến khi bạn (chủ brand) vào **Trang quản trị Brand → Đơn hàng nhận được**, kiểm tra đã nhận đúng số tiền trong app ngân hàng, rồi bấm **"Xác nhận đã nhận tiền"**. Đây là bước xác nhận thủ công vì dự án không có backend riêng để tự động đối soát với ngân hàng.
++
+ ## 4. Publish Security Rules
+ - **Firestore**: vào **Firestore Database → Rules**, dán nội dung file `firestore.rules`, bấm **Publish**
+ - **Storage**: vào **Storage → Rules**, dán nội dung file `storage.rules`, bấm **Publish**
+@@ -74,7 +87,10 @@ products/{id}         { name, description, category, priceVND, points, stock, im
+ orders/{id}           { buyerId, buyerEmail, buyerName, buyerPhone, buyerAddress,
+                         productId, productName, productImage, brandId, brandName,
+                         quantity, priceVND, totalVND, pointsUsed, pointsEarned,
+-                        paymentMethod, type: 'redeem'|'buy',
++                        paymentMethod: 'COD'|'VIETQR'|'MOMO',
++                        paymentStatus: 'cod'|'unpaid'|'paid',
++                        orderCode,   // mã ngắn dùng làm nội dung chuyển khoản, đối soát
++                        type: 'redeem'|'buy',
+                         status: 'pending'|'confirmed'|'shipping'|'completed'|'cancelled',
+                         createdAt }
+ notifications/{uid}/items/{id}  { type, message, link, readAt, createdAt }
+diff --git a/firestore.rules b/firestore.rules
+index 111dad5..f034adf 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -31,6 +31,14 @@ service cloud.firestore {
+           && request.resource.data.points >= 0;
+     }
+ 
++    // Kiểm tra paymentStatus hợp lệ — chỉ áp dụng nếu field này tồn tại trên document
++    // (đơn hàng cũ tạo trước khi có tính năng VietQR sẽ không có field này)
++    function isValidPaymentStatus() {
++      return !('paymentStatus' in request.resource.data)
++          || (request.resource.data.paymentStatus is string
++              && request.resource.data.paymentStatus in ['cod', 'unpaid', 'paid']);
++    }
++
+     // Hồ sơ người dùng — mỗi người chỉ quản lý hồ sơ của chính mình
+     match /users/{userId} {
+       allow read: if isSignedIn();
+@@ -75,7 +83,8 @@ service cloud.firestore {
+     }
+ 
+     // P0-2: Đơn hàng thật — tạo khi khách mua/đổi điểm sản phẩm brand
+-    // Brand được cập nhật CHỈ field status (vòng đời đơn hàng), không sửa field khác
++    // Brand được cập nhật CHỈ field status + paymentStatus (vòng đời đơn hàng
++    // và xác nhận đã nhận chuyển khoản VietQR/MoMo), không sửa field khác
+     match /orders/{orderId} {
+       allow read: if isSignedIn() && (
+                     resource.data.buyerId == request.auth.uid ||
+@@ -84,12 +93,13 @@ service cloud.firestore {
+                   );
+       allow create: if isSignedIn() && request.resource.data.buyerId == request.auth.uid;
+ 
+-      // P0-2: Cho brand cập nhật chỉ field status theo chuỗi hợp lệ
++      // P0-2: Cho brand cập nhật status theo chuỗi hợp lệ, và/hoặc paymentStatus
+       allow update: if isSignedIn()
+                     && resource.data.brandId == request.auth.uid
+-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
++                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paymentStatus'])
+                     && request.resource.data.status is string
+-                    && request.resource.data.status in ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'];
++                    && request.resource.data.status in ['pending', 'confirmed', 'shipping', 'completed', 'cancelled']
++                    && isValidPaymentStatus();
+       allow delete: if false;
+     }
+ 
+diff --git a/src/components/MyRealOrders.jsx b/src/components/MyRealOrders.jsx
+index f2d2d40..94ca953 100644
+--- a/src/components/MyRealOrders.jsx
++++ b/src/components/MyRealOrders.jsx
+@@ -13,6 +13,12 @@ const ORDER_STATUS_MAP = {
+   cancelled: { label: 'Đã huỷ',      variant: 'reject' },
+ };
+ 
++const PAYMENT_STATUS_MAP = {
++  cod:    { label: 'COD',             variant: 'default' },
++  unpaid: { label: 'Chưa thanh toán', variant: 'milestone' },
++  paid:   { label: 'Đã thanh toán',   variant: 'eco' },
++};
++
+ export default function MyRealOrders() {
+   const { user } = useAuth();
+   const [orders, setOrders] = useState([]);
+@@ -55,7 +61,14 @@ export default function MyRealOrders() {
+                   {o.type === 'redeem' ? `-${o.pointsUsed} điểm` : `${(o.totalVND || 0).toLocaleString('vi-VN')}đ`}
+                 </span>
+                 {/* P0-2: Chip trạng thái đơn hàng — cập nhật real-time */}
+-                <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
++                <div className="flex items-center gap-1">
++                  {o.paymentStatus && (
++                    <Chip variant={(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).variant}>
++                      {(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).label}
++                    </Chip>
++                  )}
++                  <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
++                </div>
+               </div>
+             </div>
+           );
+diff --git a/src/components/PurchaseModal.jsx b/src/components/PurchaseModal.jsx
+index f98872a..f61625c 100644
+--- a/src/components/PurchaseModal.jsx
++++ b/src/components/PurchaseModal.jsx
+@@ -1,6 +1,7 @@
+ import { useState } from 'react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import { useApp } from '../context/AppContext';
++import { getVietQRUrl, isVietQRConfigured } from '../lib/vietqr';
+ 
+ export default function PurchaseModal() {
+   const { purchaseModalProduct, closePurchaseModal, buyProduct, user } = useApp();
+@@ -13,6 +14,10 @@ export default function PurchaseModal() {
+   });
+   const [paymentMethod, setPaymentMethod] = useState('COD');
+   const [isSubmitting, setIsSubmitting] = useState(false);
++  // 'form' = đang nhập thông tin đặt hàng, 'qr' = đơn đã tạo, đang chờ khách quét mã chuyển khoản
++  const [step, setStep] = useState('form');
++  const [orderResult, setOrderResult] = useState(null);
++  const [copied, setCopied] = useState(false);
+ 
+   if (!purchaseModalProduct) return null;
+ 
+@@ -22,12 +27,27 @@ export default function PurchaseModal() {
+   // Calculate reward green points: ~5% value, min 20 points
+   const bonusPoints = Math.max(20, Math.round((totalPrice * 0.05) / 100) * 10);
+ 
++  const handleClose = () => {
++    closePurchaseModal();
++    // reset lại về bước nhập form cho lần mở tiếp theo
++    setStep('form');
++    setOrderResult(null);
++    setQuantity(1);
++  };
++
++  const handleCopyContent = () => {
++    if (!orderResult) return;
++    navigator.clipboard?.writeText(orderResult.orderCode);
++    setCopied(true);
++    setTimeout(() => setCopied(false), 2000);
++  };
++
+   const handleSubmit = (e) => {
+     e.preventDefault();
+     setIsSubmitting(true);
+ 
+     setTimeout(async () => {
+-      await buyProduct({
++      const result = await buyProduct({
+         product,
+         quantity,
+         customerInfo,
+@@ -35,7 +55,15 @@ export default function PurchaseModal() {
+         bonusPoints,
+       });
+       setIsSubmitting(false);
+-      setQuantity(1);
++
++      if (result && paymentMethod !== 'COD') {
++        // VIETQR / MOMO: giữ modal mở, chuyển sang bước hiển thị mã QR chuyển khoản
++        setOrderResult(result);
++        setStep('qr');
++      } else if (result) {
++        // COD: xác nhận xong, đóng modal như cũ
++        handleClose();
++      }
+     }, 600);
+   };
+ 
+@@ -47,7 +75,7 @@ export default function PurchaseModal() {
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           exit={{ opacity: 0 }}
+-          onClick={closePurchaseModal}
++          onClick={step === 'qr' ? undefined : handleClose}
+           className="fixed inset-0 bg-primary/60 backdrop-blur-sm"
+         />
+ 
+@@ -59,6 +87,95 @@ export default function PurchaseModal() {
+           transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+           className="relative bg-surface-container-lowest rounded-hero shadow-level-3 w-full max-w-lg max-h-[92vh] overflow-y-auto z-10 border border-outline-variant/30 flex flex-col"
+         >
++          {step === 'qr' && orderResult ? (
++            <>
++              {/* Header */}
++              <div className="p-space-xl border-b border-outline-variant/30 flex items-center justify-between sticky top-0 bg-surface-container-lowest/95 backdrop-blur-md z-10">
++                <div className="flex items-center gap-space-xs">
++                  <span className="material-symbols-outlined text-primary text-[24px]">qr_code_2</span>
++                  <h3 className="text-title-lg text-primary font-bold">Quét mã để thanh toán</h3>
++                </div>
++                <button
++                  onClick={handleClose}
++                  className="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors"
++                >
++                  <span className="material-symbols-outlined text-[20px]">close</span>
++                </button>
++              </div>
++
++              <div className="p-space-xl space-y-space-lg">
++                <div className="bg-primary-container/50 border border-leaf-green/30 rounded-card p-space-md text-center">
++                  <p className="text-label-md text-primary font-semibold">
++                    Đơn #{orderResult.orderCode} đã được tạo — trạng thái "Chờ xử lý"
++                  </p>
++                  <p className="text-label-sm text-primary/80 mt-0.5">
++                    Người bán sẽ xác nhận đơn ngay khi nhận được chuyển khoản.
++                  </p>
++                </div>
++
++                {isVietQRConfigured && paymentMethod === 'VIETQR' ? (
++                  <>
++                    <div className="flex justify-center">
++                      <img
++                        src={getVietQRUrl({ amount: orderResult.totalVND, orderCode: orderResult.orderCode })}
++                        alt={`Mã QR chuyển khoản đơn ${orderResult.orderCode}`}
++                        className="w-64 h-auto rounded-nested border border-outline-variant/40 shadow-subtle"
++                      />
++                    </div>
++                    <p className="text-body-sm text-on-surface-variant text-center">
++                      Mở app ngân hàng bất kỳ → quét mã QR trên → kiểm tra đúng số tiền rồi xác nhận chuyển khoản.
++                    </p>
++                  </>
++                ) : (
++                  <div className="bg-surface-container-low rounded-card p-space-md text-body-sm text-on-surface-variant text-center">
++                    {paymentMethod === 'MOMO'
++                      ? 'Vui lòng mở ví MoMo và chuyển khoản theo thông tin bên dưới.'
++                      : 'Vui lòng chuyển khoản theo thông tin bên dưới.'}
++                    <br />
++                    <span className="text-label-sm">
++                      (Chủ shop chưa cấu hình tài khoản nhận tiền trong file .env — QR chưa hiển thị được.)
++                    </span>
++                  </div>
++                )}
++
++                <div className="space-y-1.5 text-body-md">
++                  <div className="flex justify-between">
++                    <span className="text-on-surface-variant">Số tiền:</span>
++                    <span className="font-bold text-primary text-title-md">
++                      {orderResult.totalVND.toLocaleString('vi-VN')}đ
++                    </span>
++                  </div>
++                  <div className="flex justify-between items-center">
++                    <span className="text-on-surface-variant">Nội dung chuyển khoản:</span>
++                    <button
++                      type="button"
++                      onClick={handleCopyContent}
++                      className="flex items-center gap-1 font-bold text-primary bg-primary-container/40 px-2.5 py-1 rounded-nested hover:bg-primary-container/70 transition-colors"
++                    >
++                      {orderResult.orderCode}
++                      <span className="material-symbols-outlined text-[16px]">
++                        {copied ? 'check' : 'content_copy'}
++                      </span>
++                    </button>
++                  </div>
++                </div>
++
++                <p className="text-label-sm text-on-surface-variant text-center">
++                  Ghi đúng nội dung <strong>{orderResult.orderCode}</strong> để người bán đối chiếu đúng đơn của bạn.
++                </p>
++
++                <button
++                  type="button"
++                  onClick={handleClose}
++                  className="w-full h-12 bg-primary text-on-primary rounded-input font-bold text-label-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-level-2"
++                >
++                  <span className="material-symbols-outlined text-[20px]">check_circle</span>
++                  Tôi đã chuyển khoản
++                </button>
++              </div>
++            </>
++          ) : (
++          <>
+           {/* Header */}
+           <div className="p-space-xl border-b border-outline-variant/30 flex items-center justify-between sticky top-0 bg-surface-container-lowest/95 backdrop-blur-md z-10">
+             <div className="flex items-center gap-space-xs">
+@@ -66,7 +183,7 @@ export default function PurchaseModal() {
+               <h3 className="text-title-lg text-primary font-bold">Đặt Mua Sản Phẩm</h3>
+             </div>
+             <button
+-              onClick={closePurchaseModal}
++              onClick={handleClose}
+               className="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors"
+             >
+               <span className="material-symbols-outlined text-[20px]">close</span>
+@@ -226,7 +343,7 @@ export default function PurchaseModal() {
+             <div className="flex items-center gap-space-md pt-space-xs">
+               <button
+                 type="button"
+-                onClick={closePurchaseModal}
++                onClick={handleClose}
+                 className="w-1/3 h-12 rounded-input border border-outline-variant text-on-surface font-semibold hover:bg-surface-container-low transition-colors"
+               >
+                 Hủy
+@@ -251,6 +368,8 @@ export default function PurchaseModal() {
+               </motion.button>
+             </div>
+           </form>
++          </>
++          )}
+         </motion.div>
+       </div>
+     </AnimatePresence>
+diff --git a/src/context/AppContext.jsx b/src/context/AppContext.jsx
+index 9b30fa4..1b6fa52 100644
+--- a/src/context/AppContext.jsx
++++ b/src/context/AppContext.jsx
+@@ -2,7 +2,8 @@ import { createContext, useContext, useReducer, useCallback, useMemo } from 'rea
+ import { PRODUCTS, INITIAL_TRANSACTIONS, INITIAL_IMPACT, VOUCHERS, MILESTONES } from '../data/mockData';
+ import { useAuth } from './AuthContext';
+ import { db } from '../lib/firebase';
+-import { doc, runTransaction, collection, addDoc, serverTimestamp } from 'firebase/firestore';
++import { doc, runTransaction, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
++import { generateOrderCode } from '../lib/vietqr';
+ 
+ // ── Initial State ──
+ const initialState = {
+@@ -139,18 +140,19 @@ function appReducer(state, action) {
+       return { ...state, purchaseModalProduct: null };
+ 
+     case ACTIONS.BUY_PRODUCT: {
+-      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = action.payload;
+-      const orderId = Math.floor(Math.random() * 9000 + 1000);
++      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50, orderCode } = action.payload;
+       const totalVND = (product.priceVND || 0) * quantity;
+       const newTransaction = {
+         id: `t${Date.now()}`,
+         type: 'buy',
+-        desc: `Mua ${product.name} (x${quantity}) – Đơn hàng #VX-${orderId}`,
++        desc: `Mua ${product.name} (x${quantity}) – Đơn hàng #${orderCode}`,
+         points: bonusPoints,
+         date: new Date().toISOString(),
+         productId: product.id,
+         amountVND: totalVND,
+         paymentMethod: paymentMethod,
++        paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
++        orderCode,
+         customerName: customerInfo.name,
+       };
+       const updatedProducts = state.products.map(p =>
+@@ -165,10 +167,14 @@ function appReducer(state, action) {
+         },
+         products: updatedProducts,
+         transactions: [newTransaction, ...state.transactions],
+-        purchaseModalProduct: null,
++        // Modal đóng hay chuyển sang bước hiển thị QR do PurchaseModal tự quyết định,
++        // không tự đóng ở đây nữa (đơn hàng VietQR cần giữ modal để hiện mã QR).
+         toast: {
+           type: 'success',
+-          message: `Đặt mua thành công "${product.name}"! +${bonusPoints} điểm xanh đã cộng vào ví.`,
++          message:
++            paymentMethod === 'COD'
++              ? `Đặt mua thành công "${product.name}"! +${bonusPoints} điểm xanh đã cộng vào ví.`
++              : `Đã tạo đơn "${product.name}"! Hoàn tất chuyển khoản để người bán xác nhận đơn.`,
+         },
+       };
+     }
+@@ -295,16 +301,20 @@ export function AppProvider({ children }) {
+ 
+   const buyProduct = useCallback(async (payload) => {
+     const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = payload;
++    // Mã đơn ngắn dùng làm nội dung chuyển khoản (đối chiếu với mã QR VietQR)
++    const orderCode = generateOrderCode();
++    const totalVND = (product.priceVND || 0) * quantity;
++    const payloadWithCode = { ...payload, orderCode };
+ 
+     // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
+     if (!product.brandId) {
+-      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
+-      return;
++      dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
++      return { orderCode, totalVND };
+     }
+ 
+     if (!user) {
+       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Vui lòng đăng nhập để đặt mua sản phẩm này.' } });
+-      return;
++      return null;
+     }
+ 
+     try {
+@@ -335,9 +345,8 @@ export function AppProvider({ children }) {
+         });
+       });
+ 
+-      const totalVND = (product.priceVND || 0) * quantity;
+-
+       // P0-2: Đơn mới tạo có status 'pending'
++      // paymentStatus: 'cod' = trả khi nhận hàng, 'unpaid' = chờ khách chuyển khoản (VietQR/MoMo)
+       await addDoc(collection(db, 'orders'), {
+         buyerId: user.uid,
+         buyerEmail: user.email || '',
+@@ -354,6 +363,8 @@ export function AppProvider({ children }) {
+         totalVND,
+         pointsEarned: bonusPoints,
+         paymentMethod,
++        paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
++        orderCode,
+         type: 'buy',
+         status: 'pending',
+         createdAt: serverTimestamp(),
+@@ -373,12 +384,23 @@ export function AppProvider({ children }) {
+         console.warn('Không thể tạo thông báo đơn hàng mới:', errNotif);
+       }
+ 
+-      dispatch({ type: ACTIONS.BUY_PRODUCT, payload });
++      dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
++      return { orderCode, totalVND };
+     } catch (err) {
+       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đặt mua thất bại, thử lại sau.' } });
++      return null;
+     }
+   }, [user]);
+ 
++  // Brand xác nhận đã nhận được chuyển khoản cho 1 đơn VietQR/MoMo (chỉ đổi field paymentStatus)
++  const confirmOrderPayment = useCallback(async (order) => {
++    try {
++      await updateDoc(doc(db, 'orders', order.id), { paymentStatus: 'paid' });
++    } catch (err) {
++      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Không thể xác nhận thanh toán, thử lại sau.' } });
++    }
++  }, []);
++
+   const openPurchaseModal = useCallback((product) => {
+     dispatch({ type: ACTIONS.OPEN_PURCHASE_MODAL, payload: product });
+   }, []);
+@@ -418,6 +440,7 @@ export function AppProvider({ children }) {
+     tradeIn,
+     redeemProduct,
+     buyProduct,
++    confirmOrderPayment,
+     openPurchaseModal,
+     closePurchaseModal,
+     addToCart,
+diff --git a/src/lib/vietqr.js b/src/lib/vietqr.js
+new file mode 100644
+index 0000000..4a4594d
+--- /dev/null
++++ b/src/lib/vietqr.js
+@@ -0,0 +1,48 @@
++// ── VietQR (Napas 24/7) — tạo mã QR chuyển khoản ngân hàng ──
++// Docs: https://www.vietqr.io/danh-sach-api/link-tao-ma-nhanh
++//
++// Đây là cách phù hợp nhất cho một shop cá nhân / dự án không có tài khoản
++// merchant: chỉ cần số tài khoản ngân hàng cá nhân, không cần cổng thanh toán,
++// không cần backend riêng — ảnh QR được dựng thẳng từ 1 URL.
++
++// Cấu hình lấy từ .env (xem .env.example) — KHÔNG hardcode số tài khoản trong code.
++const BANK_ID = import.meta.env.VITE_BANK_ID || '';
++const ACCOUNT_NO = import.meta.env.VITE_BANK_ACCOUNT_NO || '';
++const ACCOUNT_NAME = import.meta.env.VITE_BANK_ACCOUNT_NAME || '';
++
++export const isVietQRConfigured = Boolean(BANK_ID && ACCOUNT_NO && ACCOUNT_NAME);
++
++// API yêu cầu addInfo/accountName không dấu, tối đa 25 ký tự cho addInfo.
++function stripDiacritics(str = '') {
++  return str
++    .normalize('NFD')
++    .replace(/[\u0300-\u036f]/g, '')
++    .replace(/đ/g, 'd')
++    .replace(/Đ/g, 'D')
++    .replace(/[^a-zA-Z0-9 ]/g, '')
++    .trim();
++}
++
++// Sinh mã đơn hàng ngắn dùng làm nội dung chuyển khoản, để đối chiếu đơn
++// với giao dịch ngân hàng thực tế (vd: VX48213).
++export function generateOrderCode() {
++  const rand = Math.floor(10000 + Math.random() * 90000);
++  return `VX${rand}`;
++}
++
++// Trả về URL ảnh QR (img.vietqr.io Quick Link), sẵn sàng dùng trong <img src>.
++// template: 'compact2' (có logo ngân hàng + số tiền, gọn) — có thể đổi sang
++// 'compact' | 'qr_only' | 'print' tuỳ ý.
++export function getVietQRUrl({ amount, orderCode, template = 'compact2' }) {
++  if (!isVietQRConfigured) return null;
++  const addInfo = stripDiacritics(`Thanh toan don ${orderCode}`).slice(0, 25);
++  const accountName = stripDiacritics(ACCOUNT_NAME);
++  const params = new URLSearchParams({
++    amount: String(Math.round(amount || 0)),
++    addInfo,
++    accountName,
++  });
++  return `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-${template}.png?${params.toString()}`;
++}
++
++export const vietqrBankLabel = ACCOUNT_NAME;
+diff --git a/src/pages/BrandDashboard.jsx b/src/pages/BrandDashboard.jsx
+index 1d94b68..1b48385 100644
+--- a/src/pages/BrandDashboard.jsx
++++ b/src/pages/BrandDashboard.jsx
+@@ -1,5 +1,6 @@
+ import { useState, useEffect } from 'react';
+ import { useAuth } from '../context/AuthContext';
++import { useApp } from '../context/AppContext';
+ import { db, storage } from '../lib/firebase';
+ import { collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+@@ -31,6 +32,14 @@ const ORDER_STATUS_MAP = {
+   cancelled: { label: 'Đã huỷ',     variant: 'reject' },
+ };
+ 
++// Trạng thái thanh toán riêng — khác với vòng đời giao hàng ở trên
++const PAYMENT_STATUS_MAP = {
++  cod:    { label: 'COD',            variant: 'default' },
++  unpaid: { label: 'Chưa thanh toán', variant: 'milestone' },
++  paid:   { label: 'Đã thanh toán',   variant: 'eco' },
++};
++const PAYMENT_METHOD_LABEL = { COD: 'COD', VIETQR: 'VietQR / CK', MOMO: 'Ví MoMo' };
++
+ // P1-4: Nén ảnh phía client trước khi upload — giới hạn cạnh dài 1200px, chất lượng JPEG 80%
+ function compressImage(file, maxWidth = 1200, quality = 0.8) {
+   return new Promise((resolve) => {
+@@ -63,6 +72,7 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
+ 
+ export default function BrandDashboard() {
+   const { user, brand } = useAuth();
++  const { confirmOrderPayment } = useApp();
+   const [products, setProducts] = useState([]);
+   const [orders, setOrders] = useState([]);
+   const [form, setForm] = useState({
+@@ -335,6 +345,7 @@ export default function BrandDashboard() {
+                   <div className="flex-1 min-w-0">
+                     <p className="text-label-lg font-semibold truncate">
+                       {o.productName}{o.quantity > 1 ? ` x${o.quantity}` : ''}
++                      {o.orderCode && <span className="text-on-surface-variant font-normal"> · #{o.orderCode}</span>}
+                     </p>
+                     <p className="text-label-sm text-on-surface-variant truncate">
+                       {o.buyerName || o.buyerEmail}
+@@ -355,7 +366,27 @@ export default function BrandDashboard() {
+                     </div>
+                     {/* P0-2: Chip trạng thái + dropdown chuyển trạng thái */}
+                     <div className="flex flex-col items-end gap-1">
+-                      <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
++                      <div className="flex items-center gap-1">
++                        {o.paymentMethod && o.paymentMethod !== 'COD' && (
++                          <span className="text-label-sm text-on-surface-variant">
++                            {PAYMENT_METHOD_LABEL[o.paymentMethod] || o.paymentMethod}
++                          </span>
++                        )}
++                        {o.paymentStatus && (
++                          <Chip variant={(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).variant}>
++                            {(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).label}
++                          </Chip>
++                        )}
++                        <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
++                      </div>
++                      {o.paymentStatus === 'unpaid' && (
++                        <button
++                          onClick={() => confirmOrderPayment(o)}
++                          className="text-label-sm font-semibold text-primary hover:text-secondary transition-colors"
++                        >
++                          Xác nhận đã nhận tiền
++                        </button>
++                      )}
+                       {transitions.length > 0 && (
+                         <select
+                           value=""

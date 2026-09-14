@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { db, storage } from '../lib/firebase';
 import { collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -30,6 +31,14 @@ const ORDER_STATUS_MAP = {
   completed: { label: 'Hoàn thành',  variant: 'milestone' },
   cancelled: { label: 'Đã huỷ',     variant: 'reject' },
 };
+
+// Trạng thái thanh toán riêng — khác với vòng đời giao hàng ở trên
+const PAYMENT_STATUS_MAP = {
+  cod:    { label: 'COD',            variant: 'default' },
+  unpaid: { label: 'Chưa thanh toán', variant: 'milestone' },
+  paid:   { label: 'Đã thanh toán',   variant: 'eco' },
+};
+const PAYMENT_METHOD_LABEL = { COD: 'COD', VIETQR: 'VietQR / CK', MOMO: 'Ví MoMo' };
 
 // P1-4: Nén ảnh phía client trước khi upload — giới hạn cạnh dài 1200px, chất lượng JPEG 80%
 function compressImage(file, maxWidth = 1200, quality = 0.8) {
@@ -63,6 +72,7 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
 
 export default function BrandDashboard() {
   const { user, brand } = useAuth();
+  const { confirmOrderPayment } = useApp();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [form, setForm] = useState({
@@ -335,6 +345,7 @@ export default function BrandDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-label-lg font-semibold truncate">
                       {o.productName}{o.quantity > 1 ? ` x${o.quantity}` : ''}
+                      {o.orderCode && <span className="text-on-surface-variant font-normal"> · #{o.orderCode}</span>}
                     </p>
                     <p className="text-label-sm text-on-surface-variant truncate">
                       {o.buyerName || o.buyerEmail}
@@ -355,7 +366,27 @@ export default function BrandDashboard() {
                     </div>
                     {/* P0-2: Chip trạng thái + dropdown chuyển trạng thái */}
                     <div className="flex flex-col items-end gap-1">
-                      <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
+                      <div className="flex items-center gap-1">
+                        {o.paymentMethod && o.paymentMethod !== 'COD' && (
+                          <span className="text-label-sm text-on-surface-variant">
+                            {PAYMENT_METHOD_LABEL[o.paymentMethod] || o.paymentMethod}
+                          </span>
+                        )}
+                        {o.paymentStatus && (
+                          <Chip variant={(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).variant}>
+                            {(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).label}
+                          </Chip>
+                        )}
+                        <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
+                      </div>
+                      {o.paymentStatus === 'unpaid' && (
+                        <button
+                          onClick={() => confirmOrderPayment(o)}
+                          className="text-label-sm font-semibold text-primary hover:text-secondary transition-colors"
+                        >
+                          Xác nhận đã nhận tiền
+                        </button>
+                      )}
                       {transitions.length > 0 && (
                         <select
                           value=""

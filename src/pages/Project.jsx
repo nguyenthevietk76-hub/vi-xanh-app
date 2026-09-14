@@ -16,15 +16,19 @@ export default function Project() {
   return (
     <div className="flex flex-col w-full">
       {/* ═══ HERO — Full Screen Declaration ═══ */}
-      <section ref={heroRef} className="relative w-full min-h-screen -mt-20 overflow-hidden bg-gradient-to-b from-[#0d2018] via-[#12281e] to-[#163327] flex items-center justify-center">
-        {/* Parallax background lines */}
-        <motion.div style={{ y: heroY }} className="absolute inset-0 opacity-15 pointer-events-none">
-          <svg className="w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 1200 800">
-            <path d="M-100 150 C300 230 600 100 1300 210" stroke="#b1f1ca" strokeDasharray="8 6" strokeWidth="1.5" />
-            <path d="M-100 300 C320 380 700 220 1300 360" stroke="#b1f1ca" strokeWidth="1" />
-            <path d="M-100 450 C250 530 780 370 1300 510" stroke="#b1f1ca" strokeDasharray="12 8" strokeWidth="1.2" />
-            <path d="M-100 600 C400 680 900 520 1300 660" stroke="#b1f1ca" strokeWidth="0.8" />
-          </svg>
+      <section ref={heroRef} className="relative w-full min-h-screen -mt-20 overflow-hidden bg-[#0d2018] flex items-center justify-center">
+        {/* Looping background video */}
+        <motion.div style={{ y: heroY }} className="absolute inset-0">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            src="/videos/hero-da.mp4"
+          />
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/70 via-[#0d2018]/50 to-[#163327]/80" />
         </motion.div>
 
         <motion.div style={{ opacity: heroOpacity }} className="relative z-10 max-w-content mx-auto px-margin-mobile md:px-margin-tablet lg:px-margin-desktop text-center text-on-primary">

@@ -31,6 +31,14 @@ service cloud.firestore {
           && request.resource.data.points >= 0;
     }
 
+    // Kiểm tra paymentStatus hợp lệ — chỉ áp dụng nếu field này tồn tại trên document
+    // (đơn hàng cũ tạo trước khi có tính năng VietQR sẽ không có field này)
+    function isValidPaymentStatus() {
+      return !('paymentStatus' in request.resource.data)
+          || (request.resource.data.paymentStatus is string
+              && request.resource.data.paymentStatus in ['cod', 'unpaid', 'paid']);
+    }
+
     // Hồ sơ người dùng — mỗi người chỉ quản lý hồ sơ của chính mình
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -75,7 +83,8 @@ service cloud.firestore {
     }
 
     // P0-2: Đơn hàng thật — tạo khi khách mua/đổi điểm sản phẩm brand
-    // Brand được cập nhật CHỈ field status (vòng đời đơn hàng), không sửa field khác
+    // Brand được cập nhật CHỈ field status + paymentStatus (vòng đời đơn hàng
+    // và xác nhận đã nhận chuyển khoản VietQR/MoMo), không sửa field khác
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
                     resource.data.buyerId == request.auth.uid ||
@@ -84,12 +93,13 @@ service cloud.firestore {
                   );
       allow create: if isSignedIn() && request.resource.data.buyerId == request.auth.uid;
 
-      // P0-2: Cho brand cập nhật chỉ field status theo chuỗi hợp lệ
+      // P0-2: Cho brand cập nhật status theo chuỗi hợp lệ, và/hoặc paymentStatus
       allow update: if isSignedIn()
                     && resource.data.brandId == request.auth.uid
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paymentStatus'])
                     && request.resource.data.status is string
-                    && request.resource.data.status in ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'];
+                    && request.resource.data.status in ['pending', 'confirmed', 'shipping', 'completed', 'cancelled']
+                    && isValidPaymentStatus();
       allow delete: if false;
     }
 

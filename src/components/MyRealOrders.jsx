@@ -13,6 +13,12 @@ const ORDER_STATUS_MAP = {
   cancelled: { label: 'Đã huỷ',      variant: 'reject' },
 };
 
+const PAYMENT_STATUS_MAP = {
+  cod:    { label: 'COD',             variant: 'default' },
+  unpaid: { label: 'Chưa thanh toán', variant: 'milestone' },
+  paid:   { label: 'Đã thanh toán',   variant: 'eco' },
+};
+
 export default function MyRealOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -55,7 +61,14 @@ export default function MyRealOrders() {
                   {o.type === 'redeem' ? `-${o.pointsUsed} điểm` : `${(o.totalVND || 0).toLocaleString('vi-VN')}đ`}
                 </span>
                 {/* P0-2: Chip trạng thái đơn hàng — cập nhật real-time */}
-                <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
+                <div className="flex items-center gap-1">
+                  {o.paymentStatus && (
+                    <Chip variant={(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).variant}>
+                      {(PAYMENT_STATUS_MAP[o.paymentStatus] || PAYMENT_STATUS_MAP.cod).label}
+                    </Chip>
+                  )}
+                  <Chip variant={statusInfo.variant}>{statusInfo.label}</Chip>
+                </div>
               </div>
             </div>
           );
