@@ -46,8 +46,18 @@ export default function Home() {
           muted
           playsInline
           preload="auto"
-          src="/videos/hero-bg.mp4"
+          poster="/images/hero.png"
+          onCanPlay={(e) => { e.target.muted = true; e.target.play().catch(() => {}); }}
           className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-65 transform-gpu"
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+        {/* Fallback static image when video can't load */}
+        <img
+          src="/images/hero.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-50 -z-[1]"
         />
 
         {/* Contrast Overlay: Soft tint ensuring text is easily readable while video shines */}
