@@ -72,7 +72,7 @@ export default function App() {
             <div className="min-h-screen flex flex-col bg-surface-container-high font-sans text-body-md text-on-surface antialiased">
               <ScrollToTop />
               <TopNav />
-              <main className="flex-1 pt-20 pb-20 md:pb-0">
+              <main className="flex-1 pt-20 pb-28 md:pb-0">
                 <ErrorBoundary>
                   <AnimatedRoutes />
                 </ErrorBoundary>

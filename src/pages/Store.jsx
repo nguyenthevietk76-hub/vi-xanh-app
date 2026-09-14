@@ -94,35 +94,35 @@ export default function Store() {
             <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-tertiary-container/85 mix-blend-multiply" />
           </div>
 
-          <div className="relative z-10 p-space-xl md:p-space-2xl flex flex-col md:flex-row items-center justify-between gap-space-md backdrop-blur-[1px]">
+          <div className="relative z-10 p-4 sm:p-space-xl md:p-space-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md backdrop-blur-[1px]">
             <div className="flex items-center gap-space-md">
-              <div className="w-12 h-12 rounded-full bg-secondary-fixed/20 border border-secondary-fixed/40 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[28px] text-secondary-fixed">bolt</span>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary-fixed/20 border border-secondary-fixed/40 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px] sm:text-[28px] text-secondary-fixed">bolt</span>
               </div>
               <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-fixed/25 text-secondary-fixed text-[11px] font-bold uppercase tracking-wider mb-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-fixed/25 text-secondary-fixed text-[10px] sm:text-[11px] font-bold uppercase tracking-wider mb-1">
                   Ưu đãi có hạn
                 </div>
-                <h3 className="text-title-lg md:text-headline-sm font-bold">Flash sale xanh — giảm đến 30%</h3>
-                <p className="text-body-sm text-[#DCEEDF]/90">Số lượng có hạn, làm mới không gian sống bền vững với điểm thưởng</p>
+                <h3 className="text-title-md sm:text-title-lg md:text-headline-sm font-bold">Flash sale xanh — giảm đến 30%</h3>
+                <p className="text-body-xs sm:text-body-sm text-[#DCEEDF]/90">Số lượng có hạn, làm mới không gian sống bền vững với điểm thưởng</p>
               </div>
             </div>
-            <div className="flex items-center gap-space-md flex-wrap justify-center">
+            <div className="flex items-center gap-space-sm sm:gap-space-md flex-wrap justify-start sm:justify-center w-full md:w-auto">
               <div className="flex items-center gap-1">
                 {[countdown.h, countdown.m, countdown.s].map((v, i) => (
                   <span key={i} className="flex items-center gap-1">
-                    <span className="bg-white/20 backdrop-blur-md rounded-nested px-3 py-1.5 text-title-md font-bold text-white shadow-sm border border-white/20">
+                    <span className="bg-white/20 backdrop-blur-md rounded-nested px-2.5 py-1 sm:px-3 sm:py-1.5 text-label-lg sm:text-title-md font-bold text-white shadow-sm border border-white/20">
                       {String(v).padStart(2, '0')}
                     </span>
-                    {i < 2 && <span className="text-title-md font-bold text-white">:</span>}
+                    {i < 2 && <span className="text-label-lg sm:text-title-md font-bold text-white">:</span>}
                   </span>
                 ))}
               </div>
               <button 
                 onClick={() => setActiveTab('sale')}
-                className="px-4 py-2 bg-secondary-fixed text-primary rounded-input font-bold text-label-md hover:bg-white transition-all duration-200 flex items-center gap-1 shadow-sm"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-secondary-fixed text-primary rounded-input font-bold text-label-sm sm:text-label-md hover:bg-white transition-all duration-200 flex items-center gap-1 shadow-sm"
               >
-                Xem tất cả <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                Xem tất cả <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
               </button>
             </div>
           </div>
@@ -130,26 +130,26 @@ export default function Store() {
       </ScrollReveal>
 
       {/* Trust Bar */}
-      <div className="flex flex-wrap items-center justify-center gap-space-xl mb-space-xl text-body-md text-on-surface-variant bg-surface-container-lowest rounded-card p-space-md shadow-subtle">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-around gap-2 sm:gap-space-xl mb-space-lg sm:mb-space-xl text-body-xs sm:text-body-md text-on-surface-variant bg-surface-container-lowest rounded-card p-3 sm:p-space-md shadow-subtle">
         {[
           { icon: 'local_shipping', text: 'Miễn phí vận chuyển từ 300.000đ' },
           { icon: 'autorenew', text: 'Đổi trả trong 7 ngày' },
-          { icon: 'verified_user', text: 'Thanh toán an toàn & Bảo vệ người mua' },
+          { icon: 'verified_user', text: 'Thanh toán an toàn & Bảo vệ' },
         ].map(item => (
-          <div key={item.text} className="flex items-center gap-space-xs">
-            <span className="material-symbols-outlined icon-md text-secondary">{item.icon}</span>
+          <div key={item.text} className="flex items-center gap-2 sm:gap-space-xs">
+            <span className="material-symbols-outlined text-[18px] sm:icon-md text-secondary shrink-0">{item.icon}</span>
             <span>{item.text}</span>
           </div>
         ))}
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-space-xs mb-space-xl">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 mb-space-md sm:mb-space-xl">
         {FILTER_TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-space-lg py-space-xs rounded-chip text-label-lg font-semibold transition-all duration-200
+            className={`px-3 sm:px-space-lg py-1.5 sm:py-space-xs rounded-chip text-label-md sm:text-label-lg font-semibold transition-all duration-200 whitespace-nowrap shrink-0
               ${activeTab === tab.id
                 ? 'bg-primary text-on-primary'
                 : 'bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low'
@@ -160,7 +160,36 @@ export default function Store() {
         ))}
       </div>
 
-      <div className="flex gap-space-xl">
+      {/* Category Carousel for Mobile & Tablet */}
+      <div className="lg:hidden mb-space-md sm:mb-space-lg">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3 py-1 rounded-chip text-label-sm font-semibold whitespace-nowrap transition-colors shrink-0 ${
+              selectedCategory === 'all'
+                ? 'bg-secondary text-on-secondary'
+                : 'bg-surface-container-lowest text-on-surface-variant border border-outline-variant/60'
+            }`}
+          >
+            Tất cả danh mục
+          </button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(selectedCategory === cat.id ? 'all' : cat.id)}
+              className={`px-3 py-1 rounded-chip text-label-sm font-semibold whitespace-nowrap transition-colors shrink-0 ${
+                selectedCategory === cat.id
+                  ? 'bg-secondary text-on-secondary'
+                  : 'bg-surface-container-lowest text-on-surface-variant border border-outline-variant/60'
+              }`}
+            >
+              {cat.name} ({cat.count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-space-lg lg:gap-space-xl">
         {/* Sidebar Filters (Desktop) */}
         <aside className="hidden lg:block w-[220px] shrink-0 space-y-space-xl">
           {/* Categories */}
@@ -285,7 +314,7 @@ export default function Store() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xl bg-primary text-on-primary rounded-hero p-3.5 px-5 shadow-level-3 flex items-center justify-between border border-leaf-green/40 backdrop-blur-md"
+            className="fixed bottom-20 sm:bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xl bg-primary text-on-primary rounded-hero p-3.5 px-5 shadow-level-3 flex items-center justify-between border border-leaf-green/40 backdrop-blur-md"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">

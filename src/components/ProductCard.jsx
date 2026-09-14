@@ -167,17 +167,17 @@ export default function ProductCard({ product, className = '' }) {
               whileTap={{ scale: 0.98 }}
               onClick={() => redeemProduct(product)}
               disabled={outOfStock}
-              className="w-full h-9 bg-primary-container text-primary hover:bg-[#cbe3ce] rounded-nested font-semibold text-label-md
-                       transition-colors duration-200 flex items-center justify-center gap-1.5 border border-primary/20 disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full h-10 bg-[#DCEEDF] text-primary hover:bg-[#cbe3ce] rounded-nested font-semibold text-label-md
+                       transition-colors duration-200 flex items-center justify-center gap-1.5 border border-[#a2cfaf]/70 disabled:opacity-50 disabled:pointer-events-none"
             >
-              <span className="material-symbols-outlined text-[16px]">eco</span>
+              <span className="material-symbols-outlined text-[16px] text-secondary">eco</span>
               {outOfStock ? 'Hết hàng' : `Đổi bằng ${product.points.toLocaleString('vi-VN')} điểm`}
             </motion.button>
           ) : (
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={openTradeIn}
-              className="w-full h-9 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-nested font-medium text-label-sm
+              className="w-full h-10 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-nested font-medium text-label-sm
                        transition-colors duration-200 flex items-center justify-center gap-1.5 border border-outline-variant/50"
             >
               <span className="material-symbols-outlined text-[16px] text-sunlit-ochre-text">recycling</span>

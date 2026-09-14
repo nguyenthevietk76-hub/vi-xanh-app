@@ -45,20 +45,18 @@ export default function TopNav() {
         </nav>
 
         {/* Right: Wallet + Cart + Avatar */}
-        <div className="flex items-center gap-space-sm sm:gap-space-md">
-          <div className="hidden sm:block">
-            <WalletBadge onClick={() => navigate('/vi-cua-toi')} />
-          </div>
+        <div className="flex items-center gap-1.5 sm:gap-space-md">
+          <WalletBadge onClick={() => navigate('/vi-cua-toi')} />
 
           {/* Cart Button */}
           <button
             onClick={() => navigate('/cua-hang')}
-            className="relative w-10 h-10 rounded-full bg-surface-container-lowest border border-outline-variant/60 flex items-center justify-center hover:bg-surface-container-low transition-colors text-primary"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-surface-container-lowest border border-outline-variant/60 flex items-center justify-center hover:bg-surface-container-low transition-colors text-primary shrink-0"
             title="Giỏ hàng"
           >
-            <span className="material-symbols-outlined text-[20px]">shopping_cart</span>
+            <span className="material-symbols-outlined text-[19px] sm:text-[20px]">shopping_cart</span>
             {cartItemCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-sunlit-ochre text-sunlit-ochre-text font-bold text-[10px] flex items-center justify-center border-2 border-surface-container-lowest">
+              <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full bg-sunlit-ochre text-sunlit-ochre-text font-bold text-[9px] sm:text-[10px] flex items-center justify-center border-2 border-surface-container-lowest">
                 {cartItemCount}
               </span>
             )}

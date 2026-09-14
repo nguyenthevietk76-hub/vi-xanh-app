@@ -3,7 +3,6 @@ import CountUp from './CountUp';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 
-// ── Compact variant (header/nav) ──
 export function WalletBadge({ onClick }) {
   const { wallet } = useApp();
   const prevPoints = useRef(wallet.points);
@@ -20,21 +19,22 @@ export function WalletBadge({ onClick }) {
   return (
     <motion.button
       onClick={onClick}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.96 }}
       className={`
-        inline-flex items-center gap-space-xs px-space-md py-1.5
-        rounded-chip text-label-lg font-semibold
-        transition-all duration-300
+        inline-flex items-center gap-1 sm:gap-space-xs px-2 sm:px-space-md py-1 sm:py-1.5
+        rounded-chip text-label-sm sm:text-label-lg font-semibold
+        transition-all duration-300 shrink-0
         ${flash
           ? 'bg-secondary-container text-primary ring-2 ring-secondary-container'
           : 'bg-surface-container-low text-primary hover:bg-surface-container'
         }
       `}
+      title="Xem ví của tôi"
     >
-      <span className="material-symbols-outlined icon-sm text-secondary">eco</span>
-      <span>Số dư: </span>
+      <span className="material-symbols-outlined text-[17px] sm:icon-sm text-secondary">eco</span>
+      <span className="hidden xs:inline">Số dư: </span>
       <span className="font-bold">{wallet.points.toLocaleString('vi-VN')}</span>
-      <span className="text-on-surface-variant font-normal"> điểm xanh</span>
+      <span className="hidden md:inline text-on-surface-variant font-normal"> điểm xanh</span>
     </motion.button>
   );
 }
@@ -76,18 +76,18 @@ export default function WalletPointCounter({ variant = 'full', className = '' })
 
   // Full variant with chart
   return (
-    <div className={`bg-primary rounded-hero p-space-2xl md:p-space-3xl relative overflow-hidden ${className}`}>
+    <div className={`bg-primary rounded-card sm:rounded-hero p-5 sm:p-space-2xl md:p-space-3xl relative overflow-hidden ${className}`}>
       {/* Leaf watermark */}
       <div className="absolute right-4 top-4 opacity-[0.07] pointer-events-none">
-        <span className="material-symbols-outlined text-[160px] text-on-primary">eco</span>
+        <span className="material-symbols-outlined text-[120px] sm:text-[160px] text-on-primary">eco</span>
       </div>
 
-      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-space-2xl">
+      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-space-lg sm:gap-space-2xl">
         {/* Left: Points */}
         <div>
-          <div className="flex items-center gap-space-xs mb-space-sm">
+          <div className="flex items-center gap-space-xs mb-space-xs sm:mb-space-sm">
             <span className="material-symbols-outlined icon-md text-[#DCEEDF]">eco</span>
-            <span className="text-label-md text-[#DCEEDF] uppercase tracking-wider font-semibold">
+            <span className="text-label-sm sm:text-label-md text-[#DCEEDF] uppercase tracking-wider font-semibold">
               Số dư điểm xanh
             </span>
           </div>
@@ -96,17 +96,17 @@ export default function WalletPointCounter({ variant = 'full', className = '' })
               end={wallet.points}
               duration={1200}
               separator="."
-              className="text-[56px] leading-[64px] font-bold text-on-primary tracking-tight"
+              className="text-[38px] leading-[46px] sm:text-[56px] sm:leading-[64px] font-bold text-on-primary tracking-tight"
             />
-            <span className="text-headline-md text-[#DCEEDF] font-normal">điểm</span>
+            <span className="text-title-lg sm:text-headline-md text-[#DCEEDF] font-normal">điểm</span>
           </div>
-          <p className="text-body-lg text-[#DCEEDF]/80 mt-space-xs">
+          <p className="text-body-sm sm:text-body-lg text-[#DCEEDF]/80 mt-space-xs">
             Tương đương khoảng <strong className="text-on-primary">{wallet.equivalentVND.toLocaleString('vi-VN')}đ</strong> mua sắm & đổi quà
           </p>
         </div>
 
         {/* Right: Bar Chart */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-card p-space-xl min-w-[280px]">
+        <div className="bg-white/10 backdrop-blur-sm rounded-card p-4 sm:p-space-xl min-w-0 sm:min-w-[280px]">
           <div className="flex items-center justify-between mb-space-md">
             <div className="flex items-center gap-space-xs">
               <span className="material-symbols-outlined icon-sm text-[#DCEEDF]">bar_chart</span>

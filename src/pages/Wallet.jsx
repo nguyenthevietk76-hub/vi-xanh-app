@@ -27,15 +27,15 @@ export default function Wallet() {
   return (
     <div className="max-w-content mx-auto w-full px-margin-mobile md:px-margin-tablet lg:px-margin-desktop py-space-2xl">
       {/* Breadcrumb */}
-      <div className="flex items-center justify-between mb-space-xl">
-        <div className="flex items-center gap-space-xs text-body-md text-on-surface-variant">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-space-lg sm:mb-space-xl">
+        <div className="flex items-center gap-space-xs text-body-sm sm:text-body-md text-on-surface-variant">
           <button onClick={() => navigate('/')} className="hover:text-primary transition-colors">Trang chủ</button>
           <span className="material-symbols-outlined text-[14px]">chevron_right</span>
           <span className="text-on-surface font-semibold">Ví của tôi</span>
         </div>
         <div className="flex items-center gap-space-xs">
           <span className="material-symbols-outlined icon-sm text-secondary">verified</span>
-          <span className="text-label-md text-on-surface-variant">
+          <span className="text-label-sm sm:text-label-md text-on-surface-variant">
             Hội viên Xanh {user.memberTier} • Mã Ví #{user.memberId}
           </span>
         </div>
@@ -43,10 +43,10 @@ export default function Wallet() {
 
       {/* ═══ Wallet Hero ═══ */}
       <ScrollReveal preset="fade-up">
-        <WalletPointCounter variant="full" className="mb-space-xl" />
+        <WalletPointCounter variant="full" className="mb-space-lg sm:mb-space-xl" />
 
         {/* Quick Actions */}
-        <div className="flex gap-space-md mb-space-3xl">
+        <div className="flex gap-space-sm sm:gap-space-md mb-space-2xl sm:mb-space-3xl">
           <Button onClick={() => navigate('/cua-hang')} icon="swap_horiz" className="flex-1" size="md">
             Đổi điểm
           </Button>
@@ -58,7 +58,7 @@ export default function Wallet() {
 
       {/* ═══ 3 Quick Action Cards ═══ */}
       <ScrollReveal preset="fade-up" delay={0.1}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-space-lg mb-space-3xl">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md sm:gap-space-lg mb-space-2xl sm:mb-space-3xl">
           {[
             { title: 'Đổi đồ cũ', desc: 'Gửi đồ nhận điểm tích luỹ xanh', icon: 'autorenew', action: openTradeIn, color: 'bg-secondary-fixed/50' },
             { title: 'Đổi sản phẩm', desc: 'Mua sắm xanh bằng điểm thưởng', icon: 'shopping_bag', action: () => navigate('/cua-hang'), color: 'bg-sunlit-ochre/50' },
@@ -69,10 +69,10 @@ export default function Wallet() {
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={card.action}
-              className="bg-surface-container-lowest rounded-card p-space-xl flex items-center gap-space-lg shadow-level-2 hover:shadow-level-2-hover transition-shadow text-left"
+              className="bg-surface-container-lowest rounded-card p-4 sm:p-space-xl flex items-center gap-space-md sm:gap-space-lg shadow-level-2 hover:shadow-level-2-hover transition-shadow text-left"
             >
-              <div className={`w-12 h-12 rounded-full ${card.color} flex items-center justify-center shrink-0`}>
-                <span className="material-symbols-outlined icon-lg text-primary">{card.icon}</span>
+              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full ${card.color} flex items-center justify-center shrink-0`}>
+                <span className="material-symbols-outlined text-[22px] sm:icon-lg text-primary">{card.icon}</span>
               </div>
               <div>
                 <div className="text-title-md font-semibold text-on-surface">{card.title}</div>
@@ -85,27 +85,27 @@ export default function Wallet() {
 
       {/* ═══ Exchange Rates ═══ */}
       <ScrollReveal preset="fade-up" delay={0.1}>
-        <div className="flex items-center justify-between mb-space-lg">
+        <div className="flex items-center justify-between mb-space-md sm:mb-space-lg">
           <div>
-            <h2 className="text-headline-sm text-primary font-bold">Tỷ lệ quy đổi tham khảo</h2>
-            <p className="text-body-sm text-on-surface-variant mt-0.5">Mức điểm thưởng ước tính nhận được trên mỗi kg đồ thu gom đạt chuẩn</p>
+            <h2 className="text-title-lg sm:text-headline-sm text-primary font-bold">Tỷ lệ quy đổi tham khảo</h2>
+            <p className="text-body-xs sm:text-body-sm text-on-surface-variant mt-0.5">Mức điểm thưởng ước tính nhận được trên mỗi kg đồ thu gom đạt chuẩn</p>
           </div>
-          <button className="text-label-lg text-secondary font-semibold hover:text-primary transition-colors flex items-center gap-1">
-            Chi tiết bảng giá <span className="material-symbols-outlined icon-sm">arrow_forward</span>
+          <button className="text-label-sm sm:text-label-lg text-secondary font-semibold hover:text-primary transition-colors flex items-center gap-1 shrink-0">
+            Chi tiết <span className="material-symbols-outlined icon-sm">arrow_forward</span>
           </button>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-3xl">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-space-md mb-space-2xl sm:mb-space-3xl">
           {EXCHANGE_RATES.map(rate => (
-            <div key={rate.id} className="bg-surface-container-lowest rounded-card p-space-xl shadow-subtle card-hover">
-              <div className="flex items-center justify-between mb-space-md">
-                <span className="text-body-md text-on-surface">{rate.name}</span>
-                <span className="material-symbols-outlined icon-md text-on-surface-variant">{rate.icon}</span>
+            <div key={rate.id} className="bg-surface-container-lowest rounded-card p-3.5 sm:p-space-xl shadow-subtle card-hover">
+              <div className="flex items-center justify-between mb-space-xs sm:mb-space-md">
+                <span className="text-label-sm sm:text-body-md text-on-surface font-semibold">{rate.name}</span>
+                <span className="material-symbols-outlined text-[18px] sm:icon-md text-on-surface-variant">{rate.icon}</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-[32px] leading-[40px] font-bold text-primary">{rate.rate}</span>
-                <span className="text-body-md text-on-surface-variant">{rate.unit}</span>
+                <span className="text-[26px] sm:text-[32px] leading-[34px] sm:leading-[40px] font-bold text-primary">{rate.rate}</span>
+                <span className="text-label-sm sm:text-body-md text-on-surface-variant">{rate.unit}</span>
               </div>
-              <p className="text-body-sm text-on-surface-variant mt-space-xs">{rate.desc}</p>
+              <p className="text-body-xs sm:text-body-sm text-on-surface-variant mt-1 leading-snug">{rate.desc}</p>
             </div>
           ))}
         </div>
@@ -113,12 +113,12 @@ export default function Wallet() {
 
       {/* ═══ Transaction History ═══ */}
       <ScrollReveal preset="fade-up" delay={0.1}>
-        <div className="flex items-center justify-between mb-space-lg">
-          <div className="flex items-center gap-space-md">
-            <h2 className="text-headline-sm text-primary font-bold">Lịch sử giao dịch</h2>
-            <span className="text-label-md text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded-chip">{filteredTx.length} gần nhất</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-space-md sm:mb-space-lg">
+          <div className="flex items-center gap-2 sm:gap-space-md">
+            <h2 className="text-title-lg sm:text-headline-sm text-primary font-bold">Lịch sử giao dịch</h2>
+            <span className="text-label-sm sm:text-label-md text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded-chip">{filteredTx.length} gần nhất</span>
           </div>
-          <div className="flex gap-space-xs">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
             {[
               { id: 'all', label: 'Tất cả' },
               { id: 'earn', label: 'Nhận điểm' },
@@ -127,7 +127,7 @@ export default function Wallet() {
               <button
                 key={f.id}
                 onClick={() => setTxFilter(f.id)}
-                className={`px-space-md py-space-xs rounded-chip text-label-lg font-semibold transition-all
+                className={`px-3 py-1 sm:px-space-md sm:py-space-xs rounded-chip text-label-sm sm:text-label-lg font-semibold transition-all whitespace-nowrap shrink-0
                   ${txFilter === f.id ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
               >
                 {f.label}

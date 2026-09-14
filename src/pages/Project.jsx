@@ -46,7 +46,7 @@ export default function Project() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.7 }}
-            className="text-display-lg md:text-[56px] md:leading-[64px] font-bold tracking-tight max-w-4xl mx-auto"
+            className="text-[28px] leading-[36px] xs:text-[34px] xs:leading-[42px] sm:text-display-lg md:text-[56px] md:leading-[64px] font-bold tracking-tight max-w-4xl mx-auto"
           >
             Chung tay làm sạch Việt Nam khỏi rác thải nhựa
           </motion.h1>
@@ -55,7 +55,7 @@ export default function Project() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="mt-space-xl text-body-lg text-surface-container-low/80 max-w-2xl mx-auto leading-relaxed"
+            className="mt-space-md sm:mt-space-xl text-body-sm sm:text-body-lg text-surface-container-low/85 max-w-2xl mx-auto leading-relaxed"
           >
             Từng bao ni-lông, chai nhựa cũ được hoàn vốn sống mới qua chu trình tái sinh minh bạch. Cùng Ví Xanh chuyển hóa hành vi nhỏ thành di sản xanh bền vững.
           </motion.p>
@@ -64,20 +64,20 @@ export default function Project() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65, duration: 0.5 }}
-            className="mt-space-3xl flex flex-wrap items-center justify-center gap-space-md"
+            className="mt-space-2xl sm:mt-space-3xl flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-space-md w-full sm:w-auto max-w-xs sm:max-w-none"
           >
             <button
               onClick={openTradeIn}
               className="inline-flex items-center justify-center gap-space-xs px-space-2xl py-3.5
                          bg-surface-container-lowest text-primary rounded-chip font-semibold text-label-lg
-                         shadow-xl hover:bg-surface-container-low transition-all active:scale-95"
+                         shadow-xl hover:bg-surface-container-low transition-all active:scale-95 w-full sm:w-auto"
             >
               Tham gia ngay
               <span className="material-symbols-outlined icon-sm">arrow_forward</span>
             </button>
             <a href="#progress" className="inline-flex items-center justify-center gap-space-xs px-space-2xl py-3.5
-                     bg-white/10 hover:bg-white/15 text-surface-container-lowest rounded-chip
-                     font-semibold text-label-lg backdrop-blur-sm transition-all">
+                     bg-white/20 hover:bg-white/25 border border-white/30 text-surface-container-lowest rounded-chip
+                     font-semibold text-label-lg backdrop-blur-sm transition-all w-full sm:w-auto">
               Xem tiến độ thực địa
             </a>
           </motion.div>
@@ -87,7 +87,7 @@ export default function Project() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.5 }}
-            className="mt-16 flex flex-col items-center gap-2 text-surface-container-low/50"
+            className="mt-12 sm:mt-16 flex flex-col items-center gap-2 text-surface-container-low/50"
           >
             <span className="text-label-sm">Cuộn để khám phá</span>
             <motion.span
@@ -100,9 +100,9 @@ export default function Project() {
       </section>
 
       {/* ═══ PROGRESS BAR ═══ */}
-      <div id="progress" className="max-w-content mx-auto w-full px-margin-mobile md:px-margin-tablet lg:px-margin-desktop -mt-14 relative z-20">
+      <div id="progress" className="max-w-content mx-auto w-full px-margin-mobile md:px-margin-tablet lg:px-margin-desktop -mt-10 sm:-mt-14 relative z-20">
         <ScrollReveal preset="fade-up">
-          <div className="bg-surface-container-lowest rounded-hero p-space-2xl shadow-level-2">
+          <div className="bg-surface-container-lowest rounded-card sm:rounded-hero p-4 sm:p-space-2xl shadow-level-2">
             <div className="flex items-center justify-between mb-space-sm">
               <div className="flex items-center gap-space-xs">
                 <span className="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse" />
