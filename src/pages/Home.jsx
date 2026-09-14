@@ -1,4 +1,3 @@
-import { useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
@@ -11,15 +10,6 @@ import ProductCard from '../components/ProductCard';
 export default function Home() {
   const { openTradeIn, wallet, products, impact } = useApp();
   const navigate = useNavigate();
-  const videoRef = useRef(null);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.defaultMuted = true;
-      videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {});
-    }
-  }, []);
 
   // Products user can almost afford (within 200 points)
   const suggestedProducts = products
@@ -38,30 +28,15 @@ export default function Home() {
     <div className="flex flex-col w-full">
       {/* ═══ HERO ═══ */}
       <section className="relative w-full -mt-20 overflow-hidden bg-gradient-to-b from-[#0d2018] via-[#12281e] to-[#163327] text-on-primary">
-        {/* Background Video: Looping, hardware accelerated (GPU) & zero-lag */}
-        <video
-          ref={videoRef}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          poster="/images/hero.png"
-          onCanPlay={(e) => { e.target.muted = true; e.target.play().catch(() => {}); }}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-65 transform-gpu"
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
-        {/* Fallback static image when video can't load */}
+        {/* Hero Background Image */}
         <img
-          src="/images/hero.png"
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-50 -z-[1]"
+          src="/images/hero-bg.jpg"
+          alt="Ví Xanh - Không gian xanh"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-55 transform-gpu scale-105"
         />
 
-        {/* Contrast Overlay: Soft tint ensuring text is easily readable while video shines */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/70 via-[#0d2018]/40 to-[#163327]/80 pointer-events-none" />
+        {/* Contrast Overlay: Soft tint ensuring text is easily readable while background shines */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0d2018]/75 via-[#0d2018]/45 to-[#163327]/85 pointer-events-none" />
 
         {/* Ambient radials */}
         <div className="absolute inset-0 pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
