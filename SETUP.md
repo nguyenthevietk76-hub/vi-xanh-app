@@ -67,17 +67,31 @@ Vào **Authentication → Settings → Authorized domains** → thêm:
 
 ## 8. Luồng hoạt động
 - Người dùng bấm **Đăng nhập** ở góc phải → chọn tài khoản Google
-- User mới được tặng **500 điểm xanh** chào mừng
+- User mới được tặng **20 điểm xanh** chào mừng (1 điểm ≈ 1.000đ — mọi con số về điểm nằm trong `src/lib/points.js`)
+- **Đổi đồ cũ lấy điểm**: người dùng gửi *yêu cầu thu gom* (quần áo loại A/B/C, bã cà phê). Điểm **chưa cộng ngay** — admin vào `/admin` → mục *Yêu cầu thu gom*, nhập khối lượng cân thực tế + loại đồ rồi bấm **Duyệt** thì điểm mới vào ví
+- **Mua bằng VNĐ**: thưởng 1 điểm / 10.000đ, được cộng khi brand chuyển đơn sang **Hoàn thành**
+- **Brand huỷ đơn**: tồn kho được hoàn lại; nếu là đơn đổi điểm thì người mua được hoàn điểm
 - Ai cũng có thể vào `/brand/dang-ky` để nộp hồ sơ trở thành Brand
 - Admin vào `/admin` để **Duyệt** hồ sơ, xem thống kê hệ thống
 - Brand vào `/brand/dashboard` để đăng/sửa sản phẩm, quản lý đơn hàng (cập nhật trạng thái)
 - Người mua xem trạng thái đơn hàng real-time trong `/vi-cua-toi`
 - Điểm xanh được đồng bộ thật theo tài khoản Google, không mất khi refresh
 
+## Bảo mật điểm xanh (firestore.rules)
+Client **không thể** tự đặt số điểm. Điểm chỉ thay đổi qua 4 đường, mỗi đường gắn với một chứng từ được rules đối chiếu:
+1. Đổi sản phẩm → trừ đúng giá điểm của sản phẩm, cùng transaction với tạo đơn + trừ kho
+2. Brand hoàn tất đơn mua → cộng đúng `pointsEarned` của đơn (chỉ 1 lần)
+3. Brand huỷ đơn đổi điểm → hoàn đúng `pointsUsed` (chỉ 1 lần)
+4. Admin duyệt yêu cầu thu gom
+
+Đơn hàng cũng được đối chiếu với sản phẩm thật: giá, tổng tiền, điểm thưởng, và tồn kho chỉ giảm khi có đơn đi kèm.
+Nếu đổi hằng số trong `src/lib/points.js` (điểm chào mừng, thưởng mua hàng, loại thu gom), nhớ sửa các hằng số tương ứng ở đầu `firestore.rules`.
+
 ## Schema Firestore
 
 ```
-users/{uid}           { name, email, photoURL, points, createdAt }
+users/{uid}           { name, email, photoURL, points, createdAt,
+                        lastOrderId, lastCreditOrderId }   // 2 field chứng từ cho rules
 admins/{uid}          (tạo thủ công qua Console, doc rỗng = admin)
 brands/{uid}          { brandName, description, ownerUid, ownerEmail,
                         status: 'pending'|'approved'|'rejected', createdAt }
@@ -93,5 +107,11 @@ orders/{id}           { buyerId, buyerEmail, buyerName, buyerPhone, buyerAddress
                         type: 'redeem'|'buy',
                         status: 'pending'|'confirmed'|'shipping'|'completed'|'cancelled',
                         createdAt }
+tradeIns/{id}         { userId, userName, userEmail,
+                        categoryId: 'clothes_a'|'clothes_b'|'clothes_c'|'coffee',
+                        declaredWeightKg, estimatedPoints, collectionPoint,
+                        status: 'pending'|'approved'|'rejected', createdAt,
+                        // admin điền khi duyệt:
+                        finalCategoryId, actualWeightKg, points, reviewedBy, reviewedAt }
 notifications/{uid}/items/{id}  { type, message, link, readAt, createdAt }
 ```

@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
 import { doc, runTransaction, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { generateOrderCode } from '../lib/vietqr';
+import { pointsToVND, calcBonusPoints, calcTradeInPoints, calcCo2Saved, getTradeInRate } from '../lib/points';
 
 // ── Initial State ──
 const initialState = {
@@ -13,8 +14,8 @@ const initialState = {
     memberTier: 'Hạng Bạc',
   },
   wallet: {
-    points: 3240,
-    equivalentVND: 450000,
+    points: 324,
+    equivalentVND: pointsToVND(324),
   },
   transactions: INITIAL_TRANSACTIONS,
   products: PRODUCTS,
@@ -45,8 +46,10 @@ const ACTIONS = {
 // ── Reducer ──
 function appReducer(state, action) {
   switch (action.type) {
+    // Chế độ demo (chưa đăng nhập): cộng điểm vào ví mẫu để trải nghiệm luồng.
+    // Người dùng thật đi qua yêu cầu thu gom → admin cân & duyệt (xem tradeIn bên dưới).
     case ACTIONS.TRADE_IN: {
-      const { category, weight, condition, points, co2Saved } = action.payload;
+      const { category, weight, points, co2Saved } = action.payload;
       const newTransaction = {
         id: `t${Date.now()}`,
         type: 'trade-in',
@@ -61,7 +64,7 @@ function appReducer(state, action) {
         wallet: {
           ...state.wallet,
           points: state.wallet.points + points,
-          equivalentVND: Math.round((state.wallet.points + points) / 450 * 100) * 1000,
+          equivalentVND: pointsToVND(state.wallet.points + points),
         },
         transactions: [newTransaction, ...state.transactions],
         impact: {
@@ -72,18 +75,19 @@ function appReducer(state, action) {
         tradeInModalOpen: false,
         toast: {
           type: 'success',
-          message: `+${points} điểm xanh đã được cộng vào ví!`,
+          message: `+${points} điểm xanh (demo) đã được cộng vào ví! Đăng nhập để gửi yêu cầu thu gom thật.`,
         },
       };
     }
 
     case ACTIONS.REDEEM_PRODUCT: {
-      const product = action.payload;
-      if (state.wallet.points < product.points) return state;
+      // payload: { product, real } — real = đã ghi Firestore, ví hiển thị lấy từ Firestore
+      const { product, real = false } = action.payload;
+      if (!real && state.wallet.points < product.points) return state;
       const newTransaction = {
         id: `t${Date.now()}`,
         type: 'redeem',
-        desc: `Đổi ${product.name} – Đơn hàng #VX-${Math.floor(Math.random() * 9000 + 1000)}`,
+        desc: `Đổi ${product.name} – Đơn hàng #${action.payload.orderCode || `VX-${Math.floor(Math.random() * 9000 + 1000)}`}`,
         points: -product.points,
         date: new Date().toISOString(),
         productId: product.id,
@@ -93,10 +97,10 @@ function appReducer(state, action) {
       );
       return {
         ...state,
-        wallet: {
+        wallet: real ? state.wallet : {
           ...state.wallet,
           points: state.wallet.points - product.points,
-          equivalentVND: Math.round((state.wallet.points - product.points) / 450 * 100) * 1000,
+          equivalentVND: pointsToVND(state.wallet.points - product.points),
         },
         transactions: [newTransaction, ...state.transactions],
         products: updatedProducts,
@@ -140,8 +144,10 @@ function appReducer(state, action) {
       return { ...state, purchaseModalProduct: null };
 
     case ACTIONS.BUY_PRODUCT: {
-      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50, orderCode } = action.payload;
+      // Chế độ demo (sản phẩm mẫu): cộng thưởng ngay vào ví mẫu
+      const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', orderCode } = action.payload;
       const totalVND = (product.priceVND || 0) * quantity;
+      const bonusPoints = calcBonusPoints(totalVND);
       const newTransaction = {
         id: `t${Date.now()}`,
         type: 'buy',
@@ -163,7 +169,7 @@ function appReducer(state, action) {
         wallet: {
           ...state.wallet,
           points: state.wallet.points + bonusPoints,
-          equivalentVND: Math.round((state.wallet.points + bonusPoints) / 450 * 100) * 1000,
+          equivalentVND: pointsToVND(state.wallet.points + bonusPoints),
         },
         products: updatedProducts,
         transactions: [newTransaction, ...state.transactions],
@@ -209,20 +215,59 @@ export function AppProvider({ children }) {
     if (user && userPoints !== null) {
       return {
         points: userPoints,
-        equivalentVND: Math.round(userPoints / 450 * 100) * 1000,
+        equivalentVND: pointsToVND(userPoints),
       };
     }
     return state.wallet;
   }, [user, userPoints, state.wallet]);
 
-  const tradeIn = useCallback((payload) => {
-    dispatch({ type: ACTIONS.TRADE_IN, payload });
-  }, []);
+  // Đổi đồ cũ lấy điểm.
+  // - Chưa đăng nhập: demo cục bộ (cộng vào ví mẫu).
+  // - Đã đăng nhập: tạo yêu cầu thu gom 'pending'. Điểm KHÔNG cộng ngay —
+  //   admin/điểm thu gom cân thực tế rồi duyệt trong AdminPanel mới cộng.
+  // Trả về true nếu thành công để modal reset/đóng.
+  const tradeIn = useCallback(async ({ categoryId, weight, collectionPoint }) => {
+    const rate = getTradeInRate(categoryId);
+    if (!rate) return false;
+    const points = calcTradeInPoints(categoryId, weight);
+    const co2Saved = calcCo2Saved(categoryId, weight);
+
+    if (!user) {
+      dispatch({ type: ACTIONS.TRADE_IN, payload: { category: rate.shortName, weight, points, co2Saved } });
+      return true;
+    }
+
+    try {
+      await addDoc(collection(db, 'tradeIns'), {
+        userId: user.uid,
+        userName: user.displayName || '',
+        userEmail: user.email || '',
+        categoryId,
+        declaredWeightKg: weight,
+        estimatedPoints: points,
+        collectionPoint: collectionPoint || '',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      dispatch({ type: ACTIONS.CLOSE_TRADE_IN });
+      dispatch({
+        type: ACTIONS.SHOW_TOAST,
+        payload: {
+          type: 'success',
+          message: `Đã gửi yêu cầu thu gom ${weight}kg ${rate.shortName.toLowerCase()}. Khoảng +${points} điểm sẽ được cộng sau khi điểm thu gom cân và xác nhận.`,
+        },
+      });
+      return true;
+    } catch (err) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Gửi yêu cầu thu gom thất bại, thử lại sau.' } });
+      return false;
+    }
+  }, [user]);
 
   const redeemProduct = useCallback(async (product) => {
     // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
     if (!product.brandId) {
-      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: product });
+      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: { product } });
       return;
     }
 
@@ -231,8 +276,20 @@ export function AppProvider({ children }) {
       return;
     }
 
+    // firestore.rules chặn brand tự đổi sản phẩm của chính mình
+    if (product.brandId === user.uid) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Bạn không thể đổi sản phẩm của chính brand mình.' } });
+      return;
+    }
+
     try {
-      // P0-1: Gộp transaction trừ kho + trừ điểm (atomicity — cùng thành công hoặc cùng thất bại)
+      // Tạo sẵn ID đơn để ghi trong CÙNG transaction với trừ kho + trừ điểm.
+      // firestore.rules kiểm tra 3 thao tác này đi cùng nhau và khớp số liệu
+      // (điểm trừ = đúng giá điểm của sản phẩm, kho trừ = đúng số lượng đơn).
+      const orderRef = doc(collection(db, 'orders'));
+      const orderCode = generateOrderCode();
+      let finalProduct = product;
+
       await runTransaction(db, async (tx) => {
         const productRef = doc(db, 'products', product.id);
         const userRef = doc(db, 'users', user.uid);
@@ -243,39 +300,39 @@ export function AppProvider({ children }) {
         if (!userSnap.exists()) throw new Error('Tài khoản không hợp lệ.');
 
         const productData = productSnap.data();
-        const userData = userSnap.data();
-        const currentPoints = userData.points || 0;
+        const currentPoints = userSnap.data().points || 0;
+        const cost = productData.points; // giá điểm lấy từ server, không tin dữ liệu client
 
-        if (currentPoints < product.points) throw new Error(`Bạn cần thêm ${product.points - currentPoints} điểm nữa để đổi sản phẩm này.`);
+        if (currentPoints < cost) throw new Error(`Bạn cần thêm ${cost - currentPoints} điểm nữa để đổi sản phẩm này.`);
         if ((productData.stock || 0) < 1) throw new Error('Sản phẩm đã hết hàng.');
 
-        // Trừ kho sản phẩm
         tx.update(productRef, {
           stock: productData.stock - 1,
           weeklyRedeemed: (productData.weeklyRedeemed || 0) + 1,
+          lastOrderId: orderRef.id,
         });
-
-        // Trừ điểm người mua
         tx.update(userRef, {
-          points: currentPoints - product.points,
+          points: currentPoints - cost,
+          lastOrderId: orderRef.id,
         });
-      });
-
-      // P0-2: Đơn mới tạo có status 'pending' (không phải 'completed')
-      await addDoc(collection(db, 'orders'), {
-        buyerId: user.uid,
-        buyerEmail: user.email || '',
-        buyerName: user.displayName || '',
-        productId: product.id,
-        productName: product.name,
-        productImage: product.image,
-        brandId: product.brandId,
-        brandName: product.brandName || '',
-        quantity: 1,
-        pointsUsed: product.points,
-        type: 'redeem',
-        status: 'pending',
-        createdAt: serverTimestamp(),
+        // P0-2: Đơn mới tạo có status 'pending'
+        tx.set(orderRef, {
+          buyerId: user.uid,
+          buyerEmail: user.email || '',
+          buyerName: user.displayName || '',
+          productId: product.id,
+          productName: productData.name || product.name,
+          productImage: productData.image || product.image || '',
+          brandId: productData.brandId,
+          brandName: productData.brandName || '',
+          quantity: 1,
+          pointsUsed: cost,
+          orderCode,
+          type: 'redeem',
+          status: 'pending',
+          createdAt: serverTimestamp(),
+        });
+        finalProduct = { ...product, points: cost };
       });
 
       // P1-3: Thông báo cho brand có đơn đổi điểm mới
@@ -285,6 +342,8 @@ export function AppProvider({ children }) {
           title: 'Đơn đổi điểm mới!',
           message: `${user.displayName || 'Khách hàng'} vừa đổi 1 x "${product.name}".`,
           link: '/brand/dashboard',
+          fromUid: user.uid,
+          orderId: orderRef.id,
           readAt: null,
           createdAt: serverTimestamp(),
         });
@@ -292,24 +351,23 @@ export function AppProvider({ children }) {
         console.warn('Không thể tạo thông báo đổi điểm:', errNotif);
       }
 
-      // Dispatch mock action cho local UI update (toast, transaction log)
-      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: product });
+      // Cập nhật UI cục bộ (toast, lịch sử); ví hiển thị lấy từ Firestore
+      dispatch({ type: ACTIONS.REDEEM_PRODUCT, payload: { product: finalProduct, real: true, orderCode } });
     } catch (err) {
       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đổi sản phẩm thất bại, thử lại sau.' } });
     }
   }, [user]);
 
   const buyProduct = useCallback(async (payload) => {
-    const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', bonusPoints = 50 } = payload;
+    const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD' } = payload;
     // Mã đơn ngắn dùng làm nội dung chuyển khoản (đối chiếu với mã QR VietQR)
     const orderCode = generateOrderCode();
-    const totalVND = (product.priceVND || 0) * quantity;
     const payloadWithCode = { ...payload, orderCode };
 
     // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
     if (!product.brandId) {
       dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
-      return { orderCode, totalVND };
+      return { orderCode, totalVND: (product.priceVND || 0) * quantity };
     }
 
     if (!user) {
@@ -317,57 +375,59 @@ export function AppProvider({ children }) {
       return null;
     }
 
+    // firestore.rules chặn brand tự mua sản phẩm của chính mình
+    if (product.brandId === user.uid) {
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Bạn không thể mua sản phẩm của chính brand mình.' } });
+      return null;
+    }
+
     try {
-      // P0-1: Gộp transaction trừ kho + cộng bonus points (atomicity)
+      const orderRef = doc(collection(db, 'orders'));
+      let totalVND = 0;
+      let bonusPoints = 0;
+
+      // Trừ kho + tạo đơn trong cùng transaction. Giá lấy từ server;
+      // điểm thưởng được brand cộng khi đơn "Hoàn thành" (không cộng lúc đặt).
       await runTransaction(db, async (tx) => {
         const productRef = doc(db, 'products', product.id);
-        const userRef = doc(db, 'users', user.uid);
         const productSnap = await tx.get(productRef);
-        const userSnap = await tx.get(userRef);
-
         if (!productSnap.exists()) throw new Error('Sản phẩm không còn tồn tại.');
-        if (!userSnap.exists()) throw new Error('Tài khoản không hợp lệ.');
 
         const productData = productSnap.data();
-        const userData = userSnap.data();
-
         if ((productData.stock || 0) < quantity) throw new Error(`Chỉ còn ${productData.stock || 0} sản phẩm trong kho.`);
 
-        // Trừ kho sản phẩm
+        const priceVND = productData.priceVND || 0;
+        totalVND = priceVND * quantity;
+        bonusPoints = calcBonusPoints(totalVND);
+
         tx.update(productRef, {
           stock: productData.stock - quantity,
           weeklyRedeemed: (productData.weeklyRedeemed || 0) + quantity,
+          lastOrderId: orderRef.id,
         });
-
-        // Cộng bonus points cho người mua
-        tx.update(userRef, {
-          points: (userData.points || 0) + bonusPoints,
+        // paymentStatus: 'cod' = trả khi nhận hàng, 'unpaid' = chờ khách chuyển khoản (VietQR/MoMo)
+        tx.set(orderRef, {
+          buyerId: user.uid,
+          buyerEmail: user.email || '',
+          buyerName: customerInfo.name || user.displayName || '',
+          buyerPhone: customerInfo.phone || '',
+          buyerAddress: customerInfo.address || '',
+          productId: product.id,
+          productName: productData.name || product.name,
+          productImage: productData.image || product.image || '',
+          brandId: productData.brandId,
+          brandName: productData.brandName || '',
+          quantity,
+          priceVND,
+          totalVND,
+          pointsEarned: bonusPoints,
+          paymentMethod,
+          paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
+          orderCode,
+          type: 'buy',
+          status: 'pending',
+          createdAt: serverTimestamp(),
         });
-      });
-
-      // P0-2: Đơn mới tạo có status 'pending'
-      // paymentStatus: 'cod' = trả khi nhận hàng, 'unpaid' = chờ khách chuyển khoản (VietQR/MoMo)
-      await addDoc(collection(db, 'orders'), {
-        buyerId: user.uid,
-        buyerEmail: user.email || '',
-        buyerName: customerInfo.name || user.displayName || '',
-        buyerPhone: customerInfo.phone || '',
-        buyerAddress: customerInfo.address || '',
-        productId: product.id,
-        productName: product.name,
-        productImage: product.image,
-        brandId: product.brandId,
-        brandName: product.brandName || '',
-        quantity,
-        priceVND: product.priceVND || 0,
-        totalVND,
-        pointsEarned: bonusPoints,
-        paymentMethod,
-        paymentStatus: paymentMethod === 'COD' ? 'cod' : 'unpaid',
-        orderCode,
-        type: 'buy',
-        status: 'pending',
-        createdAt: serverTimestamp(),
       });
 
       // P1-3: Thông báo cho brand có đơn mua hàng mới
@@ -377,6 +437,8 @@ export function AppProvider({ children }) {
           title: 'Đơn hàng mới!',
           message: `${customerInfo.name || user.displayName || 'Khách hàng'} vừa đặt mua ${quantity} x "${product.name}".`,
           link: '/brand/dashboard',
+          fromUid: user.uid,
+          orderId: orderRef.id,
           readAt: null,
           createdAt: serverTimestamp(),
         });
@@ -384,7 +446,16 @@ export function AppProvider({ children }) {
         console.warn('Không thể tạo thông báo đơn hàng mới:', errNotif);
       }
 
-      dispatch({ type: ACTIONS.BUY_PRODUCT, payload: payloadWithCode });
+      const bonusText = bonusPoints > 0 ? ` +${bonusPoints} điểm xanh sẽ được cộng khi đơn hoàn tất.` : '';
+      dispatch({
+        type: ACTIONS.SHOW_TOAST,
+        payload: {
+          type: 'success',
+          message: paymentMethod === 'COD'
+            ? `Đặt mua thành công "${product.name}"!${bonusText}`
+            : `Đã tạo đơn "${product.name}"! Hoàn tất chuyển khoản để người bán xác nhận đơn.`,
+        },
+      });
       return { orderCode, totalVND };
     } catch (err) {
       dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đặt mua thất bại, thử lại sau.' } });

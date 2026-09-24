@@ -2,11 +2,10 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../lib/firebase';
+// Điểm chào mừng cho user mới (khớp WELCOME_POINTS trong firestore.rules)
+import { WELCOME_POINTS } from '../lib/points';
 
 const AuthContext = createContext(null);
-
-// Điểm chào mừng cho user mới đăng ký lần đầu (đủ để thử đổi 1 sản phẩm nhỏ)
-const WELCOME_POINTS = 500;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);   // Firebase Auth user object

@@ -9,6 +9,7 @@ import Chip from '../components/Chip';
 import ScrollReveal from '../components/ScrollReveal';
 import CountUp from '../components/CountUp';
 import MyRealOrders from '../components/MyRealOrders';
+import MyTradeIns from '../components/MyTradeIns';
 
 export default function Wallet() {
   const { user, wallet, transactions, impact, milestones, openTradeIn, vouchers } = useApp();
@@ -179,6 +180,7 @@ export default function Wallet() {
         )}
       </ScrollReveal>
 
+      <MyTradeIns />
       <MyRealOrders />
 
       {/* ═══ Milestones & Vouchers ═══ */}

@@ -35,7 +35,7 @@ export default function Store() {
 
     // Tab filter
     if (activeTab === 'sale') result = result.filter(p => p.badge === 'sale' || p.priceOriginal);
-    else if (activeTab === 'points-only') result = result.filter(p => p.points <= 350 || p.badge === 'points-only');
+    else if (activeTab === 'points-only') result = result.filter(p => p.points <= 150 || p.badge === 'points-only');
     else if (activeTab === 'new') result = result.filter(p => p.isNew);
     else if (activeTab === 'combo') result = result.filter(p => p.category === 'Đồ gia dụng' || p.badge === 'hot');
 

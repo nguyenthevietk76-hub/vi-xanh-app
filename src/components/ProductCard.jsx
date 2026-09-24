@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import Chip from './Chip';
+import { calcBonusPoints } from '../lib/points';
 
 export default function ProductCard({ product, className = '' }) {
   const { wallet, redeemProduct, addToCart, openPurchaseModal, openTradeIn } = useApp();
@@ -10,7 +11,8 @@ export default function ProductCard({ product, className = '' }) {
   const canAfford = wallet.points >= product.points;
   const pointsNeeded = product.points - wallet.points;
   const progressPercent = Math.min((wallet.points / product.points) * 100, 100);
-  const bonusPoints = Math.max(20, Math.round(((product.priceVND || 100000) * 0.05) / 100) * 10);
+  // Thưởng khi mua: 1 điểm / 10.000đ (cộng khi đơn hoàn tất)
+  const bonusPoints = calcBonusPoints(product.priceVND);
   // Chỉ sản phẩm brand thật (có brandId, tồn kho lấy real-time từ Firestore) mới cần chặn khi hết hàng
   const outOfStock = Boolean(product.brandId) && (product.stock || 0) <= 0;
 
@@ -107,9 +109,11 @@ export default function ProductCard({ product, className = '' }) {
         {/* Points alternative & Bonus Tag */}
         <div className="flex items-center justify-between text-body-sm text-secondary mb-1">
           <span>hoặc {product.points.toLocaleString('vi-VN')} điểm</span>
-          <span className="text-[11px] font-semibold text-leaf-green bg-primary-container/80 px-1.5 py-0.5 rounded">
-            +{bonusPoints} điểm khi mua
-          </span>
+          {bonusPoints > 0 && (
+            <span className="text-[11px] font-semibold text-leaf-green bg-primary-container/80 px-1.5 py-0.5 rounded">
+              +{bonusPoints} điểm khi mua
+            </span>
+          )}
         </div>
 
         {/* Social proof */}

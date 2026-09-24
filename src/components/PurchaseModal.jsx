@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { getVietQRUrl, isVietQRConfigured } from '../lib/vietqr';
+import { calcBonusPoints } from '../lib/points';
 
 export default function PurchaseModal() {
   const { purchaseModalProduct, closePurchaseModal, buyProduct, user } = useApp();
@@ -24,8 +25,8 @@ export default function PurchaseModal() {
   const product = purchaseModalProduct;
   const unitPrice = product.priceVND || 0;
   const totalPrice = unitPrice * quantity;
-  // Calculate reward green points: ~5% value, min 20 points
-  const bonusPoints = Math.max(20, Math.round((totalPrice * 0.05) / 100) * 10);
+  // Điểm thưởng: 1 điểm / 10.000đ — firestore.rules đối chiếu đúng công thức này
+  const bonusPoints = calcBonusPoints(totalPrice);
 
   const handleClose = () => {
     closePurchaseModal();
@@ -52,7 +53,6 @@ export default function PurchaseModal() {
         quantity,
         customerInfo,
         paymentMethod,
-        bonusPoints,
       });
       setIsSubmitting(false);
 
@@ -246,10 +246,10 @@ export default function PurchaseModal() {
               </div>
               <div>
                 <p className="text-label-md font-bold text-primary">
-                  Tặng ngay +{bonusPoints} Điểm Xanh
+                  {bonusPoints > 0 ? `Nhận +${bonusPoints} Điểm Xanh` : 'Tích Điểm Xanh khi mua sắm'}
                 </p>
                 <p className="text-label-sm text-primary/80">
-                  Tích lũy vào ví của bạn để đổi quà và voucher tái chế tuần hoàn.
+                  1 điểm cho mỗi 10.000đ, cộng vào ví khi đơn hoàn tất để đổi quà và voucher tái chế tuần hoàn.
                 </p>
               </div>
             </div>

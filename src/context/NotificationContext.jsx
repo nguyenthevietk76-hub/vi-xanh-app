@@ -62,8 +62,9 @@ export function NotificationProvider({ children }) {
   };
 
   // Hàm tạo thông báo gửi tới targetUserId
-  const sendNotification = async (targetUserId, { type, title, message, link }) => {
-    if (!targetUserId) return;
+  // firestore.rules: người gửi phải là admin, hoặc là người mua/brand của đơn orderId
+  const sendNotification = async (targetUserId, { type, title, message, link, orderId }) => {
+    if (!targetUserId || !user) return;
     try {
       const notifCol = collection(db, 'notifications', targetUserId, 'items');
       await addDoc(notifCol, {
@@ -71,6 +72,8 @@ export function NotificationProvider({ children }) {
         title: title || 'Thông báo mới',
         message: message || '',
         link: link || '',
+        fromUid: user.uid,
+        ...(orderId ? { orderId } : {}),
         readAt: null,
         createdAt: serverTimestamp(),
       });

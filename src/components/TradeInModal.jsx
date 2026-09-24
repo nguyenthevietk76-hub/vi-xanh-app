@@ -1,50 +1,58 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { EXCHANGE_RATES, COLLECTION_POINTS } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { COLLECTION_POINTS } from '../data/mockData';
+import { TRADE_IN_RATES, calcTradeInPoints, calcCo2Saved, pointsToVND } from '../lib/points';
 import Button from './Button';
 
+// Bước 2: người dùng xác nhận đồ đạt đúng tiêu chí của loại đã chọn.
+// Điểm cuối cùng do điểm thu gom cân & phân loại lại khi nhận đồ.
 const CONDITIONS = [
-  { id: 'good', label: 'Còn tốt (mặc được ngay)', icon: 'thumb_up', multiplier: 1 },
-  { id: 'worn', label: 'Đã cũ (sờn, phai màu)', icon: 'autorenew', multiplier: 0.8 },
-  { id: 'damaged', label: 'Hư hỏng (cần rã vật liệu)', icon: 'broken_image', multiplier: 0.5 },
+  { id: 'meets', label: 'Đồ của tôi đạt đúng tiêu chí trên', icon: 'verified' },
+  { id: 'unsure', label: 'Chưa chắc — nhờ điểm thu gom phân loại giúp', icon: 'help' },
 ];
 
 export default function TradeInModal() {
   const { tradeInModalOpen, closeTradeIn, tradeIn } = useApp();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState(null);
   const [weight, setWeight] = useState(2);
   const [weightMode, setWeightMode] = useState('kg');
   const [condition, setCondition] = useState(null);
+  const [collectionPoint, setCollectionPoint] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!tradeInModalOpen) return null;
 
-  const selectedRate = EXCHANGE_RATES.find(r => r.id === category);
-  const condMult = CONDITIONS.find(c => c.id === condition)?.multiplier || 1;
-  const estimatedPoints = selectedRate ? Math.round(selectedRate.rate * weight * condMult) : 0;
-  const co2Saved = Math.round(weight * 1.6 * 10) / 10;
+  const selectedRate = TRADE_IN_RATES.find(r => r.id === category);
+  const estimatedPoints = selectedRate ? calcTradeInPoints(category, weight) : 0;
+  const co2Saved = calcCo2Saved(category, weight);
 
-  function handleSubmit() {
-    tradeIn({
-      category: selectedRate?.name || '',
-      weight,
-      condition,
-      points: estimatedPoints,
-      co2Saved,
-    });
+  function reset() {
     setStep(1);
     setCategory(null);
     setWeight(2);
     setCondition(null);
+    setCollectionPoint(0);
+  }
+
+  async function handleSubmit() {
+    if (submitting) return;
+    setSubmitting(true);
+    const ok = await tradeIn({
+      categoryId: category,
+      weight,
+      collectionPoint: COLLECTION_POINTS[collectionPoint]?.name || '',
+    });
+    setSubmitting(false);
+    if (ok) reset();
   }
 
   function resetAndClose() {
     closeTradeIn();
-    setStep(1);
-    setCategory(null);
-    setWeight(2);
-    setCondition(null);
+    reset();
   }
 
   return (
@@ -115,7 +123,7 @@ export default function TradeInModal() {
                       <h3 className="text-title-lg text-on-surface font-semibold mb-space-xs">1. Chọn loại đồ quy đổi</h3>
                       <p className="text-body-md text-on-surface-variant mb-space-xl">Chọn đúng danh mục để hệ thống tính điểm chuẩn xác nhất</p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-space-md">
-                        {EXCHANGE_RATES.map(rate => (
+                        {TRADE_IN_RATES.map(rate => (
                           <button
                             key={rate.id}
                             onClick={() => { setCategory(rate.id); setStep(2); }}
@@ -129,8 +137,9 @@ export default function TradeInModal() {
                               ${category === rate.id ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
                               <span className="material-symbols-outlined icon-lg">{rate.icon}</span>
                             </div>
-                            <div className="text-title-md font-semibold text-on-surface">{rate.name}</div>
+                            <div className="text-title-md font-semibold text-on-surface">{rate.shortName}</div>
                             <div className="text-label-md text-secondary mt-1">{rate.rate} {rate.unit}</div>
+                            <div className="text-label-sm text-on-surface-variant mt-1 leading-snug">{rate.desc}</div>
                           </button>
                         ))}
                       </div>
@@ -169,7 +178,9 @@ export default function TradeInModal() {
                       </div>
 
                       <h3 className="text-title-lg text-on-surface font-semibold mb-space-xs">3. Tình trạng đồ vật</h3>
-                      <p className="text-body-md text-on-surface-variant mb-space-md">Giúp phân loại để tái sử dụng ngay hoặc chuyển xưởng bóc sợi tái chế</p>
+                      <p className="text-body-md text-on-surface-variant mb-space-md">
+                        Tiêu chí <strong>{selectedRate?.shortName}</strong>: {selectedRate?.desc}. Điểm thu gom sẽ cân và phân loại lại khi nhận đồ.
+                      </p>
                       <div className="flex flex-col sm:flex-row gap-space-md">
                         {CONDITIONS.map(cond => (
                           <button
@@ -200,7 +211,9 @@ export default function TradeInModal() {
                       <h3 className="text-title-lg text-on-surface font-semibold mb-space-xl">Điểm thu gom gần bạn</h3>
                       <div className="space-y-space-md">
                         {COLLECTION_POINTS.map((point, i) => (
-                          <div key={i} className="flex items-start gap-space-md p-space-lg bg-surface-container-low rounded-card hover:bg-surface-container transition-colors cursor-pointer">
+                          <div key={i} onClick={() => setCollectionPoint(i)}
+                            className={`flex items-start gap-space-md p-space-lg rounded-card transition-colors cursor-pointer border-2
+                              ${collectionPoint === i ? 'border-primary bg-[#DCEEDF]' : 'border-transparent bg-surface-container-low hover:bg-surface-container'}`}>
                             <div className="w-10 h-10 rounded-full bg-[#DCEEDF] flex items-center justify-center shrink-0">
                               <span className="material-symbols-outlined icon-md text-primary">{i === 0 ? 'location_on' : 'store'}</span>
                             </div>
@@ -227,14 +240,25 @@ export default function TradeInModal() {
                         <div className="flex justify-between"><span className="text-on-surface-variant">Loại đồ</span><span className="font-semibold">{selectedRate?.name}</span></div>
                         <div className="flex justify-between"><span className="text-on-surface-variant">Khối lượng</span><span className="font-semibold">{weight} kg</span></div>
                         <div className="flex justify-between"><span className="text-on-surface-variant">Tình trạng</span><span className="font-semibold">{CONDITIONS.find(c => c.id === condition)?.label}</span></div>
+                        <div className="flex justify-between gap-space-md"><span className="text-on-surface-variant shrink-0">Điểm thu gom</span><span className="font-semibold text-right">{COLLECTION_POINTS[collectionPoint]?.name}</span></div>
                         <div className="border-t border-outline-variant/30 pt-space-md flex justify-between items-baseline">
                           <span className="text-on-surface-variant">Điểm xanh dự kiến</span>
-                          <span className="text-headline-md text-primary font-bold">+{estimatedPoints}</span>
+                          <span className="text-right">
+                            <span className="text-headline-md text-primary font-bold block">+{estimatedPoints}</span>
+                            <span className="text-label-sm text-on-surface-variant">≈ {pointsToVND(estimatedPoints).toLocaleString('vi-VN')}đ</span>
+                          </span>
                         </div>
                       </div>
-                      <div className="flex gap-space-md mt-space-2xl">
+                      <p className="text-body-sm text-on-surface-variant mt-space-md">
+                        {user
+                          ? 'Điểm sẽ được cộng vào ví sau khi điểm thu gom cân thực tế và xác nhận. Số điểm cuối cùng có thể chênh lệch so với dự kiến.'
+                          : 'Bạn đang ở chế độ trải nghiệm: điểm chỉ cộng vào ví mẫu. Đăng nhập để gửi yêu cầu thu gom thật.'}
+                      </p>
+                      <div className="flex gap-space-md mt-space-xl">
                         <Button variant="ghost" onClick={() => setStep(3)}>Quay lại</Button>
-                        <Button onClick={handleSubmit} icon="check_circle" className="flex-1">Xác nhận gửi đồ</Button>
+                        <Button onClick={handleSubmit} icon="check_circle" className="flex-1" disabled={submitting}>
+                          {submitting ? 'Đang gửi...' : (user ? 'Gửi yêu cầu thu gom' : 'Xác nhận gửi đồ')}
+                        </Button>
                       </div>
                     </motion.div>
                   )}
@@ -252,7 +276,7 @@ export default function TradeInModal() {
                     <div className="text-[40px] leading-[48px] font-bold text-on-primary mt-space-xs">+{estimatedPoints}</div>
                     <span className="text-body-md text-[#DCEEDF]">điểm</span>
                     <p className="text-body-sm text-[#DCEEDF]/70 mt-space-md">
-                      Tương đương giảm khoảng <strong className="text-on-primary">{co2Saved} kg CO₂</strong> thải ra môi trường
+                      ≈ {pointsToVND(estimatedPoints).toLocaleString('vi-VN')}đ · Tương đương giảm khoảng <strong className="text-on-primary">{co2Saved} kg CO₂</strong> thải ra môi trường
                     </p>
                   </div>
                 </div>
@@ -262,12 +286,12 @@ export default function TradeInModal() {
                     <span className="material-symbols-outlined icon-sm text-secondary">swap_vert</span>
                     Tỷ lệ quy đổi điểm
                   </h4>
-                  {EXCHANGE_RATES.map(rate => (
+                  {TRADE_IN_RATES.map(rate => (
                     <div key={rate.id} className={`flex justify-between text-body-md p-space-sm rounded-nested transition-colors
                       ${category === rate.id ? 'bg-[#DCEEDF] font-semibold' : ''}`}>
                       <span className="flex items-center gap-space-xs">
                         <span className={`w-2 h-2 rounded-full ${category === rate.id ? 'bg-primary' : 'bg-outline-variant'}`} />
-                        {rate.name}
+                        {rate.shortName}
                       </span>
                       <span className="font-semibold">{rate.rate} {rate.unit}</span>
                     </div>

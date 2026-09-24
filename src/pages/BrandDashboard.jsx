@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { db, storage } from '../lib/firebase';
-import { collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, updateDoc, doc, serverTimestamp, runTransaction, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Chip from '../components/Chip';
+import { vndToPoints } from '../lib/points';
 
 const CATEGORY_OPTIONS = ['Bình nước', 'Túi vải', 'Đồ gia dụng', 'Cây xanh', 'Khác'];
 
@@ -72,7 +73,7 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
 
 export default function BrandDashboard() {
   const { user, brand } = useAuth();
-  const { confirmOrderPayment } = useApp();
+  const { confirmOrderPayment, showToast } = useApp();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [form, setForm] = useState({
@@ -104,7 +105,13 @@ export default function BrandDashboard() {
     return unsub;
   }, [user]);
 
-  const handleChange = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+  // Giá đổi điểm luôn = giá VNĐ ÷ 1.000 (1 điểm ≈ 1.000đ) — tự tính khi nhập giá
+  const handleChange = (field) => (e) => {
+    const value = e.target.value;
+    setForm(f => field === 'priceVND'
+      ? { ...f, priceVND: value, points: value ? String(vndToPoints(value)) : '' }
+      : { ...f, [field]: value });
+  };
 
   // P1-1: Bấm "Sửa" → prefill form
   const startEdit = (product) => {
@@ -114,7 +121,7 @@ export default function BrandDashboard() {
       description: product.description || '',
       category: product.category || CATEGORY_OPTIONS[0],
       priceVND: String(product.priceVND || ''),
-      points: String(product.points || ''),
+      points: product.priceVND ? String(vndToPoints(product.priceVND)) : '',
       stock: String(product.stock || ''),
     });
     setImageFile(null);
@@ -132,7 +139,7 @@ export default function BrandDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.priceVND || !form.points || !form.stock) {
+    if (!form.name.trim() || !form.priceVND || !form.stock) {
       setError('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
@@ -160,7 +167,7 @@ export default function BrandDashboard() {
           description: form.description.trim(),
           category: form.category,
           priceVND: Number(form.priceVND),
-          points: Number(form.points),
+          points: vndToPoints(form.priceVND),
           stock: Number(form.stock),
           image: imageURL,
         });
@@ -172,7 +179,7 @@ export default function BrandDashboard() {
           description: form.description.trim(),
           category: form.category,
           priceVND: Number(form.priceVND),
-          points: Number(form.points),
+          points: vndToPoints(form.priceVND),
           stock: Number(form.stock),
           image: imageURL,
           rating: 5,
@@ -202,8 +209,59 @@ export default function BrandDashboard() {
   };
 
   // P0-2: Cập nhật trạng thái đơn hàng + P1-3: Thông báo cho khách hàng
+  // Trong CÙNG transaction:
+  //  - Đơn mua "Hoàn thành"  → cộng điểm thưởng (pointsEarned) cho người mua
+  //  - Đơn đổi điểm "Đã huỷ" → hoàn lại điểm (pointsUsed) cho người mua
+  //  - Đơn bị huỷ           → hoàn lại tồn kho sản phẩm
+  // firestore.rules chỉ cho phép cộng đúng số điểm ghi trên đơn, và chỉ 1 lần.
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const updateOrderStatus = async (order, newStatus) => {
-    await updateDoc(doc(db, 'orders', order.id), { status: newStatus });
+    if (updatingOrderId) return;
+    setUpdatingOrderId(order.id);
+    try {
+      await runTransaction(db, async (tx) => {
+        const orderRef = doc(db, 'orders', order.id);
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists()) throw new Error('Đơn hàng không còn tồn tại.');
+        const current = orderSnap.data();
+        const allowed = ORDER_STATUS_TRANSITIONS[current.type || 'buy']?.[current.status] || [];
+        if (!allowed.includes(newStatus)) throw new Error('Trạng thái đơn đã thay đổi, vui lòng tải lại.');
+
+        const creditPoints =
+          current.type === 'buy' && newStatus === 'completed' ? (current.pointsEarned || 0)
+          : current.type === 'redeem' && newStatus === 'cancelled' ? (current.pointsUsed || 0)
+          : 0;
+
+        if (newStatus === 'completed' && (current.type || 'buy') === 'buy'
+            && (current.paymentMethod || 'COD') !== 'COD' && current.paymentStatus !== 'paid') {
+          throw new Error('Hãy xác nhận đã nhận tiền trước khi hoàn thành đơn chuyển khoản.');
+        }
+
+        // Đọc hết trước khi ghi (yêu cầu của Firestore transaction).
+        // Không đọc hồ sơ người mua (rules không cho) — cộng điểm bằng increment().
+        const buyerRef = creditPoints > 0 && current.buyerId ? doc(db, 'users', current.buyerId) : null;
+        const productRef = newStatus === 'cancelled' && current.productId ? doc(db, 'products', current.productId) : null;
+        const productSnap = productRef ? await tx.get(productRef) : null;
+
+        tx.update(orderRef, { status: newStatus });
+
+        if (buyerRef) {
+          tx.update(buyerRef, {
+            points: increment(creditPoints),
+            lastCreditOrderId: order.id,
+          });
+        }
+        if (productSnap?.exists()) {
+          tx.update(productRef, { stock: (productSnap.data().stock || 0) + (current.quantity || 1) });
+        }
+      });
+    } catch (err) {
+      showToast({ type: 'error', message: err.message || 'Không thể cập nhật đơn hàng, thử lại sau.' });
+      return;
+    } finally {
+      setUpdatingOrderId(null);
+    }
+
     if (order.buyerId) {
       try {
         const label = ORDER_STATUS_MAP[newStatus]?.label || newStatus;
@@ -212,6 +270,8 @@ export default function BrandDashboard() {
           title: `Đơn hàng: ${label}`,
           message: `Đơn hàng "${order.productName}" của bạn vừa được cập nhật trạng thái thành: ${label}.`,
           link: '/vi-cua-toi',
+          fromUid: user.uid,
+          orderId: order.id,
           readAt: null,
           createdAt: serverTimestamp(),
         });
@@ -265,8 +325,8 @@ export default function BrandDashboard() {
               <input type="number" min="0" value={form.priceVND} onChange={handleChange('priceVND')} className="w-full h-10 px-space-md bg-surface-container-high rounded-input text-body-sm" />
             </div>
             <div>
-              <label className="block text-label-md font-semibold mb-1">Điểm xanh *</label>
-              <input type="number" min="0" value={form.points} onChange={handleChange('points')} className="w-full h-10 px-space-md bg-surface-container-high rounded-input text-body-sm" />
+              <label className="block text-label-md font-semibold mb-1">Điểm xanh (tự tính)</label>
+              <input type="number" value={form.points} readOnly tabIndex={-1} title="Tự tính: giá VNĐ ÷ 1.000" className="w-full h-10 px-space-md bg-surface-container-low rounded-input text-body-sm text-on-surface-variant cursor-not-allowed" />
             </div>
           </div>
 
@@ -337,7 +397,10 @@ export default function BrandDashboard() {
             {orders.map(o => {
               const statusInfo = ORDER_STATUS_MAP[o.status] || ORDER_STATUS_MAP.pending;
               const orderType = o.type || 'buy';
-              const transitions = ORDER_STATUS_TRANSITIONS[orderType]?.[o.status] || [];
+              // Đơn chuyển khoản chưa nhận tiền thì chưa được "Hoàn thành" (khớp firestore.rules)
+              const awaitingPayment = orderType === 'buy' && (o.paymentMethod || 'COD') !== 'COD' && o.paymentStatus !== 'paid';
+              const transitions = (ORDER_STATUS_TRANSITIONS[orderType]?.[o.status] || [])
+                .filter(s => !(awaitingPayment && s === 'completed'));
 
               return (
                 <div key={o.id} className="flex flex-col sm:flex-row sm:items-center gap-space-md bg-surface-container-lowest rounded-card p-space-md shadow-subtle">
@@ -390,6 +453,7 @@ export default function BrandDashboard() {
                       {transitions.length > 0 && (
                         <select
                           value=""
+                          disabled={updatingOrderId === o.id}
                           onChange={(e) => {
                             if (e.target.value) updateOrderStatus(o, e.target.value);
                           }}

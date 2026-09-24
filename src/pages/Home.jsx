@@ -11,9 +11,9 @@ export default function Home() {
   const { openTradeIn, wallet, products, impact } = useApp();
   const navigate = useNavigate();
 
-  // Products user can almost afford (within 200 points)
+  // Products user can almost afford (within 50 points ≈ 50.000đ)
   const suggestedProducts = products
-    .filter(p => p.points <= wallet.points + 200 && p.points > 0)
+    .filter(p => p.points <= wallet.points + 50 && p.points > 0)
     .sort((a, b) => a.points - b.points)
     .slice(0, 4);
 
@@ -159,7 +159,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md sm:gap-space-lg">
             {[
-              { title: 'Đổi đồ cũ', desc: 'Gửi quần áo, đồ điện tử, đồ nhựa cũ để quy đổi thành điểm xanh tiện ích dùng ngay.', icon: 'autorenew', color: 'bg-secondary-fixed/50 text-primary', action: () => openTradeIn(), linkText: 'Đổi ngay', linkColor: 'text-secondary' },
+              { title: 'Đổi đồ cũ', desc: 'Gửi quần áo cũ và bã cà phê để quy đổi thành điểm xanh tiện ích dùng ngay.', icon: 'autorenew', color: 'bg-secondary-fixed/50 text-primary', action: () => openTradeIn(), linkText: 'Đổi ngay', linkColor: 'text-secondary' },
               { title: 'Đổi sản phẩm', desc: 'Dùng điểm xanh để đổi lấy sản phẩm thân thiện môi trường trong hệ thống cửa hàng Ví Xanh.', icon: 'swap_horiz', color: 'bg-sky-tint text-primary', action: () => navigate('/cua-hang'), linkText: 'Xem sản phẩm', linkColor: 'text-[#3563A8]' },
               { title: 'Ví xanh', desc: 'Theo dõi số dư điểm, lịch sử giao dịch minh bạch và toàn bộ tác động môi trường bạn đóng góp.', icon: 'account_balance_wallet', color: 'bg-sunlit-ochre text-sunlit-ochre-text', action: () => navigate('/vi-cua-toi'), linkText: 'Xem ví', linkColor: 'text-[#A9822E]' },
             ].map((f, i) => (
