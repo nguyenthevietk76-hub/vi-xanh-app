@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 // Các giá trị này lấy từ Firebase Console > Project settings > General > Your apps
 // và được đặt trong file .env (đừng commit file .env thật lên Git)
@@ -18,4 +17,4 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+// Ảnh sản phẩm lưu trên Supabase Storage (src/lib/supabaseStorage.js), không dùng Firebase Storage.
