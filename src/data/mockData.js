@@ -3,24 +3,10 @@
    Products, Transactions, Impact, Exchange Rates
    ══════════════════════════════════════════ */
 
-// ── Product images (High-resolution Eco Assets) ──
-const PRODUCT_IMG = {
-  binh: '/images/products/binh_giu_nhiet.jpg',
-  tui: '/images/products/tui_canvas.jpg',
-  chau: '/images/products/chau_sen_da.jpg',
-  ong_hut: '/images/products/ong_hut_inox.jpg',
-  vong_tay: '/images/products/vong_tay_handmade.jpg',
-  so_tay: '/images/products/so_tay_tai_che.jpg',
-  nen: '/images/products/nen_sap_ong.jpg',
-  khan: '/images/products/khan_soi_tre.jpg',
-  tui_luoi: '/images/products/tui_luoi_cotton.jpg',
-  thia: '/images/products/bo_thia_go_dua.jpg',
-  thung_rac: '/images/products/thung_rac_phan_loai.jpg',
-  den: '/images/products/den_nang_luong.jpg',
-  banner_flash_sale: '/images/banners/banner_flash_sale.jpg',
-  hero_collection: '/images/banners/banner_flash_sale.jpg',
-};
-const STITCH_IMG = PRODUCT_IMG;
+// ── Ảnh sản phẩm trưng bày ──
+// Ảnh minh hoạ từ Pexels (giấy phép Pexels, dùng miễn phí) — thay bằng ảnh chụp sản phẩm thật khi có.
+const img = (name) => `/images/shop/${name}.jpg`;
+
 
 
 // ── Exchange Rates ──
@@ -36,116 +22,98 @@ export const COLLECTION_POINTS = [
 ];
 
 // ── Products Catalog ──
+// Sản phẩm trưng bày (demo) của Ví Xanh — toàn bộ là đồ thủ công.
+//  - 20 sản phẩm bán: trả bằng VNĐ; điểm xanh chỉ là mã giảm giá (tối đa 50% đơn, không quá 200 điểm).
+//  - 5 quà độc quyền (redeemOnly: true): tác phẩm thủ công có giá trị nghệ thuật, KHÔNG bán,
+//    chỉ đổi trọn bằng điểm xanh (giá = points), số lượng rất ít.
+// Chưa có đánh giá/lượt bán thật nên để rating: null, reviews: 0, weeklyRedeemed: 0.
+const base = { rating: null, reviews: 0, weeklyRedeemed: 0, brandName: 'Ví Xanh' };
+const exclusive = (o) => ({ ...base, category: 'Độc quyền đổi điểm', redeemOnly: true, badge: 'exclusive', isNew: true, ...o });
+const sale = (o) => ({ ...base, badge: null, isNew: false, ...o });
+
 export const PRODUCTS = [
-  {
-    id: 'p1', name: 'Bình giữ nhiệt tái chế', category: 'Bình nước',
-    priceVND: 180000, priceOriginal: 240000, points: 180,
-    image: STITCH_IMG.binh, rating: 4.9, reviews: 128,
-    badge: 'sale', salePercent: 25, stock: 12,
-    weeklyRedeemed: 128, isNew: false,
-    desc: 'Bình giữ nhiệt Eco Bamboo 500ml, thép không gỉ 304, giữ nóng 12h / lạnh 24h.'
-  },
-  {
-    id: 'p2', name: 'Túi vải canvas hữu cơ', category: 'Túi vải',
-    priceVND: 120000, priceOriginal: null, points: 120,
-    image: STITCH_IMG.tui, rating: 4.8, reviews: 96,
-    badge: 'hot', stock: 34,
-    weeklyRedeemed: 96, isNew: false,
-    desc: 'Túi tote vải mộc Organic, thân thiện môi trường, sức chứa 15L.'
-  },
-  {
-    id: 'p3', name: 'Chậu cây tái chế', category: 'Cây xanh',
-    priceVND: 160000, priceOriginal: 195000, points: 160,
-    image: STITCH_IMG.chau, rating: 5.0, reviews: 42,
-    badge: 'hot', stock: 8,
-    weeklyRedeemed: 42, isNew: false,
-    desc: 'Bộ chậu sen đá đất nung mini, dành riêng cho thành viên xanh.'
-  },
-  {
-    id: 'p4', name: 'Ống hút inox bộ 4', category: 'Đồ gia dụng',
-    priceVND: 65000, priceOriginal: null, points: 65,
-    image: STITCH_IMG.ong_hut, rating: 4.7, reviews: 35,
-    badge: 'new', stock: 50,
-    weeklyRedeemed: 35, isNew: true,
-    desc: 'Bộ 4 ống hút inox kèm cọ rửa, túi đựng vải canvas.'
-  },
-  {
-    id: 'p5', name: 'Vòng tay handmade tái chế', category: 'Túi vải',
-    priceVND: 45000, priceOriginal: null, points: 45,
-    image: STITCH_IMG.vong_tay, rating: 4.6, reviews: 21,
-    badge: null, stock: 28,
-    weeklyRedeemed: 21, isNew: false,
-    desc: 'Vòng tay thủ công từ nhựa tái chế, mỗi chiếc là duy nhất.'
-  },
-  {
-    id: 'p6', name: 'Sổ tay giấy tái chế', category: 'Đồ gia dụng',
-    priceVND: 55000, priceOriginal: 65000, points: 55,
-    image: STITCH_IMG.so_tay, rating: 4.9, reviews: 74,
-    badge: 'sale', salePercent: 15, stock: 45,
-    weeklyRedeemed: 74, isNew: false,
-    desc: 'Sổ tay Ví Xanh, giấy tái chế 100%, bìa kraft thân thiện.'
-  },
-  {
-    id: 'p7', name: 'Nến sáp ong thủ công', category: 'Đồ gia dụng',
-    priceVND: 145000, priceOriginal: null, points: 145,
-    image: STITCH_IMG.nen, rating: 4.8, reviews: 53,
-    badge: 'hot', stock: 15,
-    weeklyRedeemed: 53, isNew: false,
-    desc: 'Nến sáp ong nguyên chất, hương oải hương tự nhiên, cháy 40h.'
-  },
-  {
-    id: 'p8', name: 'Khăn tre kháng khuẩn', category: 'Túi vải',
-    priceVND: 85000, priceOriginal: null, points: 85,
-    image: STITCH_IMG.khan, rating: 4.7, reviews: 19,
-    badge: 'new', stock: 60,
-    weeklyRedeemed: 19, isNew: true,
-    desc: 'Khăn mặt sợi tre tự nhiên, kháng khuẩn, siêu thấm hút.'
-  },
-  {
-    id: 'p9', name: 'Túi lưới đi chợ bộ 3', category: 'Túi vải',
-    priceVND: 95000, priceOriginal: null, points: 95,
-    image: STITCH_IMG.tui_luoi, rating: 4.8, reviews: 68,
-    badge: null, stock: 38,
-    weeklyRedeemed: 68, isNew: false,
-    desc: 'Bộ 3 túi lưới cotton đi chợ, thay thế hoàn toàn túi nilon.'
-  },
-  {
-    id: 'p10', name: 'Bộ thìa đĩa gỗ dừa Bến Tre', category: 'Đồ gia dụng',
-    priceVND: 75000, priceOriginal: 90000, points: 75,
-    image: STITCH_IMG.thia, rating: 4.9, reviews: 41,
-    badge: 'new', stock: 22,
-    weeklyRedeemed: 41, isNew: false,
-    desc: 'Thìa đĩa gỗ dừa thủ công Bến Tre, an toàn thực phẩm.'
-  },
-  {
-    id: 'p11', name: 'Thùng phân loại rác gia đình', category: 'Đồ gia dụng',
-    priceVND: 490000, priceOriginal: 550000, points: 490,
-    image: STITCH_IMG.thung_rac, rating: 4.5, reviews: 12,
-    badge: 'sale', salePercent: 10, stock: 5,
-    weeklyRedeemed: 12, isNew: false,
-    desc: 'Thùng phân loại rác 3 ngăn, nhựa tái chế, có nhãn phân loại.'
-  },
-  {
-    id: 'p12', name: 'Đèn bàn năng lượng mặt trời', category: 'Đồ gia dụng',
-    priceVND: 850000, priceOriginal: 950000, points: 850,
-    image: STITCH_IMG.den, rating: 4.6, reviews: 8,
-    badge: null, stock: 3,
-    weeklyRedeemed: 8, isNew: false,
-    desc: 'Đèn bàn LED sạc bằng năng lượng mặt trời, 3 chế độ sáng.'
-  },
+  // ── Quà độc quyền đổi điểm (tác phẩm nghệ thuật thủ công) ──
+  exclusive({
+    id: 'x1', name: 'Bình gốm vẽ tay “Chim và hoa”', points: 600, stock: 5, image: img('x-binh-gom-ve-tay'),
+    desc: 'Bình gốm nung đỏ, vẽ tay từng nét hình chim và hoa bằng màu gốm. Mỗi chiếc được vẽ riêng nên không có hai chiếc giống nhau. Chỉ đổi bằng điểm xanh, không bán.',
+  }),
+  exclusive({
+    id: 'x2', name: 'Tranh ghép vải vụn “Rừng xanh”', points: 900, stock: 3, image: img('x-tranh-ghep-vai'),
+    desc: 'Tranh treo tường khâu tay từ hàng trăm mảnh vải vụn nhiều sắc xanh, lấy cảm hứng từ chính quần áo cũ được gửi về Ví Xanh. Kích thước lớn, kèm thanh treo. Chỉ đổi bằng điểm xanh, không bán.',
+  }),
+  exclusive({
+    id: 'x3', name: 'Tượng thủy tinh thổi “Giọt lửa”', points: 1000, stock: 3, image: img('x-tuong-thuy-tinh-thoi'),
+    desc: 'Tượng thủy tinh thổi thủ công hình giọt nước, vân đỏ trắng xoắn bên trong. Mỗi tác phẩm là bản duy nhất. Chỉ đổi bằng điểm xanh, không bán.',
+  }),
+  exclusive({
+    id: 'x4', name: 'Tranh kính màu “Hoa anh túc”', points: 1200, stock: 2, image: img('x-tranh-kinh-mau'),
+    desc: 'Tranh kính màu ghép chì thủ công, cắt và hàn từng mảnh kính. Đặt cạnh cửa sổ để ánh sáng xuyên qua. Chỉ đổi bằng điểm xanh, không bán.',
+  }),
+  exclusive({
+    id: 'x5', name: 'Tranh khảm thủy tinh tái chế “Vườn hoa”', points: 1500, stock: 2, image: img('x-tranh-kham-thuy-tinh'),
+    desc: 'Tranh khảm (mosaic) ghép tay từ các mảnh thủy tinh và gốm vỡ tái chế, màu ánh kim đổi sắc theo ánh sáng. Tác phẩm đặc biệt nhất, số lượng rất ít. Chỉ đổi bằng điểm xanh, không bán.',
+  }),
+
+  // ── Sản phẩm bán (dùng điểm để giảm giá) ──
+  // Túi & phụ kiện
+  sale({ id: 'p1', name: 'Túi tote vải canvas', category: 'Túi & phụ kiện', priceVND: 119000, stock: 40, image: img('tui-tote-canvas'),
+    desc: 'Túi tote vải canvas dày, may tay đường chỉ chắc, dùng đi học, đi chợ thay túi ni-lông.' }),
+  sale({ id: 'p2', name: 'Túi tote từ quần jean cũ', category: 'Túi & phụ kiện', priceVND: 189000, stock: 15, isNew: true, image: img('tui-denim-tai-che'),
+    desc: 'Túi tote may lại từ quần jean cũ, giữ nguyên túi sau làm ngăn nhỏ. Mỗi chiếc có màu jean khác nhau.' }),
+  sale({ id: 'p3', name: 'Túi lưới móc đi chợ', category: 'Túi & phụ kiện', priceVND: 139000, stock: 25, image: img('tui-luoi-moc'),
+    desc: 'Túi lưới móc tay bằng sợi cotton, co giãn, đựng rau củ quả đi chợ, gấp gọn khi không dùng.' }),
+  sale({ id: 'p4', name: 'Túi xách móc len họa tiết ô vuông', category: 'Túi & phụ kiện', priceVND: 459000, stock: 6, isNew: true, image: img('tui-xach-moc-len'),
+    desc: 'Túi xách móc len họa tiết ô vuông nhiều màu, lót vải hoa, khóa kim loại và quai da. Móc tay hoàn toàn.' }),
+  sale({ id: 'p5', name: 'Túi rút vải vụn (bộ 2)', category: 'Túi & phụ kiện', priceVND: 69000, stock: 50, image: img('tui-rut-vai-vun'),
+    desc: 'Bộ 2 túi dây rút may từ vải thừa, dùng đựng đồ lặt vặt, mỹ phẩm hoặc gói quà thay giấy.' }),
+  // Đồ len đan tay
+  sale({ id: 'p6', name: 'Khăn len đan tay có tua', category: 'Đồ len đan tay', priceVND: 289000, stock: 10, image: img('khan-len-dan-tay'),
+    desc: 'Khăn quàng đan tay sọc nhiều màu, hai đầu có tua. Mềm, ấm, dùng được nhiều mùa.' }),
+  sale({ id: 'p7', name: 'Mũ len đan tay', category: 'Đồ len đan tay', priceVND: 179000, stock: 12, image: img('mu-len-dan-tay'),
+    desc: 'Mũ len đan tay kiểu beanie, vành bo gân, co giãn vừa nhiều cỡ đầu.' }),
+  // Trang trí nhà
+  sale({ id: 'p8', name: 'Giỏ cói đan tay hai màu', category: 'Trang trí nhà', priceVND: 259000, stock: 10, image: img('gio-coi-dan-tay'),
+    desc: 'Giỏ cói đan tay phối trắng và nâu, quai tết, dùng đựng chăn, đồ chơi hoặc làm vỏ chậu cây.' }),
+  sale({ id: 'p9', name: 'Dây treo chậu cây macrame', category: 'Trang trí nhà', priceVND: 149000, stock: 20, image: img('macrame-treo-cay'),
+    desc: 'Dây treo chậu cây thắt macrame bằng sợi cotton, kèm hạt gỗ. Chưa gồm chậu và cây.' }),
+  sale({ id: 'p10', name: 'Tranh thêu tay khung tròn “Hoa cúc”', category: 'Trang trí nhà', priceVND: 329000, stock: 8, isNew: true, image: img('tranh-theu-tay'),
+    desc: 'Tranh thêu tay hoa cúc trên vải lanh, căng trong khung gỗ tròn, treo tường hoặc đặt bàn.' }),
+  // Gốm & bếp
+  sale({ id: 'p11', name: 'Cốc gốm men xanh kèm đĩa', category: 'Gốm & bếp', priceVND: 219000, stock: 12, image: img('coc-gom-thu-cong'),
+    desc: 'Cốc gốm nặn tay, men xanh rêu, vẽ họa tiết chim, kèm đĩa lót. Mỗi chiếc men loang khác nhau.' }),
+  sale({ id: 'p12', name: 'Bộ 2 bát gốm men lam', category: 'Gốm & bếp', priceVND: 249000, stock: 10, image: img('bat-gom-thu-cong'),
+    desc: 'Bộ 2 bát gốm xoay tay, men lam ngọc, viền để mộc. Dùng đựng đồ ăn khô hoặc trang trí.' }),
+  sale({ id: 'p13', name: 'Bộ thìa gỗ thủ công', category: 'Gốm & bếp', priceVND: 99000, stock: 25, image: img('dung-cu-bep-go'),
+    desc: 'Bộ thìa gỗ nhiều cỡ đẽo tay, buộc dây vải, thay thìa nhựa dùng một lần.' }),
+  // Nến & chăm sóc
+  sale({ id: 'p14', name: 'Nến thơm sáp đậu nành bấc gỗ', category: 'Nến & chăm sóc', priceVND: 129000, stock: 30, image: img('nen-sap-dau-nanh'),
+    desc: 'Nến sáp đậu nành đổ tay trong hũ thủy tinh, bấc gỗ cháy lách tách. Hũ dùng lại được.' }),
+  sale({ id: 'p15', name: 'Nến sáp ong cuộn tay (bộ 3)', category: 'Nến & chăm sóc', priceVND: 99000, stock: 20, image: img('nen-sap-ong'),
+    desc: 'Bộ 3 nến cuộn tay từ tấm sáp ong vân tổ ong, mùi mật ong nhẹ tự nhiên.' }),
+  sale({ id: 'p16', name: 'Xà phòng bã cà phê', category: 'Nến & chăm sóc', priceVND: 59000, stock: 40, isNew: true, image: img('xa-phong-ba-ca-phe'),
+    desc: 'Xà phòng thủ công phối bã cà phê đã sấy khô, giúp làm sạch và khử mùi tay.' }),
+  sale({ id: 'p17', name: 'Tẩy tế bào chết bã cà phê', category: 'Nến & chăm sóc', priceVND: 89000, stock: 30, isNew: true, image: img('tay-te-bao-chet-ca-phe'),
+    desc: 'Hỗn hợp tẩy tế bào chết từ bã cà phê sấy khô và dầu dưỡng, dùng cho da toàn thân.' }),
+  // Đồ dùng xanh
+  sale({ id: 'p18', name: 'Ống hút tre kèm cọ rửa', category: 'Đồ dùng xanh', priceVND: 49000, stock: 60, image: img('ong-hut-tre'),
+    desc: 'Ống hút làm từ thân tre tự nhiên, kèm cọ rửa. Dùng lại nhiều lần thay ống hút nhựa.' }),
+  sale({ id: 'p19', name: 'Bàn chải tre', category: 'Đồ dùng xanh', priceVND: 39000, stock: 60, image: img('ban-chai-tre'),
+    desc: 'Bàn chải cán tre, lông than hoạt tính. Cán tre phân hủy được, thay cho cán nhựa.' }),
+  sale({ id: 'p20', name: 'Sổ tay bìa vải thêu', category: 'Đồ dùng xanh', priceVND: 159000, stock: 15, image: img('so-tay-handmade'),
+    desc: 'Sổ tay đóng gáy thủ công, bìa bọc vải hoa có miếng thêu chim, buộc dây gai.' }),
 ];
 
 // ── Initial Transactions ──
 export const INITIAL_TRANSACTIONS = [
   { id: 't1', type: 'trade-in', desc: 'Đổi 2kg quần áo loại A – Điểm thu gom Cầu Giấy', points: 30, date: '2026-09-24T14:30:00', category: 'clothes_a', weight: 2 },
-  { id: 't2', type: 'redeem', desc: 'Đổi Bình giữ nhiệt tái chế 500ml – Đơn hàng #VX-8921', points: -180, date: '2026-09-20T09:15:00', orderId: 'VX-8921', productId: 'p1' },
+  { id: 't2', type: 'discount', desc: 'Dùng 94 điểm giảm giá – Túi tote từ quần jean cũ – Đơn hàng #VX-8921', points: -94, date: '2026-09-20T09:15:00', orderId: 'VX-8921', productId: 'p2' },
   { id: 't3', type: 'trade-in', desc: 'Đổi 5kg bã cà phê – Điểm thu gom Hoàn Kiếm', points: 10, date: '2026-09-15T16:00:00', category: 'coffee', weight: 5 },
   { id: 't4', type: 'bonus', desc: 'Thưởng phân loại rác tuần xanh – Chương trình hành động', points: 5, date: '2026-09-10T10:00:00' },
-  { id: 't5', type: 'redeem', desc: 'Đổi Túi vải canvas Eco-Life – Đơn hàng #VX-8710', points: -120, date: '2026-09-02T11:20:00', orderId: 'VX-8710', productId: 'p2' },
+  { id: 't5', type: 'discount', desc: 'Dùng 64 điểm giảm giá – Cốc gốm men xanh kèm đĩa – Đơn hàng #VX-8710', points: -64, date: '2026-09-02T11:20:00', orderId: 'VX-8710', productId: 'p11' },
   { id: 't6', type: 'trade-in', desc: 'Đổi 4kg quần áo loại B – Điểm thu gom Q1', points: 32, date: '2026-08-28T15:45:00', category: 'clothes_b', weight: 4 },
   { id: 't7', type: 'bonus', desc: 'Hoàn thành thử thách 7 ngày xanh', points: 10, date: '2026-08-22T09:00:00' },
   { id: 't8', type: 'trade-in', desc: 'Đổi 5kg quần áo loại C – Điểm thu gom Cầu Giấy', points: 15, date: '2026-08-15T13:20:00', category: 'clothes_c', weight: 5 },
-  { id: 't9', type: 'redeem', desc: 'Đổi Sổ tay giấy tái chế – Đơn hàng #VX-8650', points: -55, date: '2026-08-10T17:30:00', orderId: 'VX-8650', productId: 'p6' },
+  { id: 't9', type: 'discount', desc: 'Dùng 29 điểm giảm giá – Xà phòng bã cà phê – Đơn hàng #VX-8650', points: -29, date: '2026-08-10T17:30:00', orderId: 'VX-8650', productId: 'p16' },
   { id: 't10', type: 'trade-in', desc: 'Đổi 3kg quần áo loại B – Điểm thu gom Hoàn Kiếm', points: 24, date: '2026-08-05T10:10:00', category: 'clothes_b', weight: 3 },
 ];
 
@@ -181,27 +149,25 @@ export const MILESTONES = [
 export const CAMPAIGNS = [
   {
     id: 'c1',
-    title: 'Làm sạch Việt Nam khỏi rác thải nhựa',
-    subtitle: 'Dự án hành động 2026–2030',
-    goal: 1000000, // kg
-    current: 128000,
-    partners: ['GreenU', 'Panasonic', 'EcoCorp'],
+    // Số liệu công khai của dự án nằm ở src/data/projectInfo.js
+    title: 'Cho quần áo cũ và bã cà phê một vòng đời mới',
+    subtitle: 'Dự án khởi nghiệp sinh viên · Thí điểm 2026',
+    goal: 1000, // kg — mục tiêu đợt thí điểm
+    current: null, // chưa có số liệu kiểm chứng
+    partners: [],
   },
 ];
 
 // ── Categories for filters ──
+const CATEGORY_NAMES = ['Túi & phụ kiện', 'Đồ len đan tay', 'Trang trí nhà', 'Gốm & bếp', 'Nến & chăm sóc', 'Đồ dùng xanh', 'Độc quyền đổi điểm'];
 export const CATEGORIES = [
   { id: 'all', name: 'Tất cả', count: PRODUCTS.length },
-  { id: 'Bình nước', name: 'Bình nước', count: PRODUCTS.filter(p => p.category === 'Bình nước').length },
-  { id: 'Túi vải', name: 'Túi vải', count: PRODUCTS.filter(p => p.category === 'Túi vải').length },
-  { id: 'Đồ gia dụng', name: 'Đồ gia dụng', count: PRODUCTS.filter(p => p.category === 'Đồ gia dụng').length },
-  { id: 'Cây xanh', name: 'Cây xanh', count: PRODUCTS.filter(p => p.category === 'Cây xanh').length },
+  ...CATEGORY_NAMES.map(name => ({ id: name, name, count: PRODUCTS.filter(p => p.category === name).length })),
 ];
 
 export const FILTER_TABS = [
   { id: 'all', label: 'Tất cả' },
-  { id: 'sale', label: 'Đang giảm giá' },
-  { id: 'points-only', label: 'Đổi bằng điểm' },
+  { id: 'redeem', label: 'Độc quyền đổi điểm' },
+  { id: 'buy', label: 'Mua (dùng điểm giảm giá)' },
   { id: 'new', label: 'Hàng mới về' },
-  { id: 'combo', label: 'Combo tiết kiệm' },
 ];

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback, u
 import { collection, doc, onSnapshot, setDoc, deleteDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
+import { isRedeemOnly } from '../lib/points';
 import { useApp } from './AppContext';
 
 /* ══════════════════════════════════════════
@@ -129,7 +130,8 @@ export function CartProvider({ children }) {
       ? mockProducts.find(p => p.id === e.productId)
       : liveProducts[e.productId];
     const loading = !mockIds.has(e.productId) && !(e.productId in liveProducts);
-    const unavailable = !loading && (!product || product.status === 'inactive' || (product.stock ?? 0) <= 0);
+    // Sản phẩm đã chuyển sang "độc quyền đổi điểm" thì không mua được nữa
+    const unavailable = !loading && (!product || product.status === 'inactive' || (product.stock ?? 0) <= 0 || isRedeemOnly(product));
     return { ...e, product: product || null, loading, unavailable };
   }), [entries, liveProducts, mockProducts, mockIds]);
 
@@ -160,6 +162,10 @@ export function CartProvider({ children }) {
 
   const addToCart = useCallback(async (product, qty = 1) => {
     if (!product?.id) return false;
+    if (isRedeemOnly(product)) {
+      showToast({ type: 'error', message: 'Sản phẩm độc quyền chỉ đổi bằng điểm xanh, không thêm vào giỏ hàng.' });
+      return false;
+    }
     if (user && product.brandId === user.uid) {
       showToast({ type: 'error', message: 'Bạn không thể mua sản phẩm của chính brand mình.' });
       return false;

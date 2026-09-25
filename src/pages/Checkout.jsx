@@ -4,11 +4,11 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart, groupByShop } from '../context/CartContext';
 import { useProduct } from '../lib/useProduct';
-import { calcBonusPoints } from '../lib/points';
+import { calcBonusPoints, isRedeemOnly, maxDiscountPoints, MAX_POINTS_PER_ORDER, MAX_DISCOUNT_PERCENT, POINT_VALUE_VND } from '../lib/points';
 import { generateOrderCode, getVietQRUrl, isVietQRConfigured } from '../lib/vietqr';
 import LoadingFallback from '../components/LoadingFallback';
 
-const FALLBACK_IMG = '/images/products/binh_giu_nhiet.jpg';
+const FALLBACK_IMG = '/images/logo.png'; // ảnh trung tính khi ảnh sản phẩm lỗi
 const SHIPPING_KEY = 'vx_shipping';
 
 const PAYMENT_METHODS = [
@@ -36,7 +36,7 @@ export default function Checkout() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { user, loginWithGoogle } = useAuth();
-  const { buyProduct } = useApp();
+  const { buyProduct, wallet } = useApp();
   const { items: cartItems, loaded: cartLoaded, removeFromCart } = useCart();
 
   const buyNow = state?.buyNow || null;
@@ -45,12 +45,30 @@ export default function Checkout() {
 
   // Danh sách dòng cần thanh toán: { productId, qty, product }
   const lines = useMemo(() => {
-    if (buyNow) return buyNowProduct ? [{ productId: buyNow.productId, qty: buyNow.qty || 1, product: buyNowProduct }] : [];
+    // Sản phẩm độc quyền không bán — không bao giờ vào luồng thanh toán
+    if (buyNow) return buyNowProduct && !isRedeemOnly(buyNowProduct) ? [{ productId: buyNow.productId, qty: buyNow.qty || 1, product: buyNowProduct }] : [];
     if (cartIds) {
-      return cartItems.filter(i => cartIds.includes(i.productId) && i.product && !i.unavailable && !i.loading);
+      return cartItems.filter(i => cartIds.includes(i.productId) && i.product && !i.unavailable && !i.loading && !isRedeemOnly(i.product));
     }
     return [];
   }, [buyNow, buyNowProduct, cartIds, cartItems]);
+
+  // Điểm xanh dùng làm mã giảm giá: tối đa MAX_POINTS_PER_ORDER cho cả lần thanh toán,
+  // mỗi đơn không quá MAX_DISCOUNT_PERCENT% giá trị đơn đó,
+  // chia lần lượt cho từng đơn (mỗi đơn vẫn phải còn tiền phải trả).
+  const [usePoints, setUsePoints] = useState(false);
+  const pointsPlan = useMemo(() => {
+    let remaining = Math.min(MAX_POINTS_PER_ORDER, Math.floor(wallet.points) || 0);
+    const plan = {};
+    lines.forEach(l => {
+      const use = Math.min(remaining, maxDiscountPoints((l.product.priceVND || 0) * l.qty));
+      plan[l.productId] = use;
+      remaining -= use;
+    });
+    return plan;
+  }, [lines, wallet.points]);
+  const discountablePoints = Object.values(pointsPlan).reduce((s, n) => s + n, 0);
+  const pointsUsed = usePoints ? discountablePoints : 0;
 
   const [shipping, setShipping] = useState(() => loadShipping() || { name: user?.displayName || '', phone: '', address: '', note: '' });
   const [paymentMethod, setPaymentMethod] = useState('COD');
@@ -61,8 +79,11 @@ export default function Checkout() {
 
   const groups = useMemo(() => groupByShop(lines), [lines]);
   const totalQty = lines.reduce((s, l) => s + l.qty, 0);
-  const totalVND = lines.reduce((s, l) => s + (l.product.priceVND || 0) * l.qty, 0);
-  const bonus = lines.reduce((s, l) => s + calcBonusPoints((l.product.priceVND || 0) * l.qty), 0);
+  const subtotalVND = lines.reduce((s, l) => s + (l.product.priceVND || 0) * l.qty, 0);
+  const lineUse = (l) => (usePoints ? pointsPlan[l.productId] || 0 : 0);
+  const totalVND = subtotalVND - pointsUsed * POINT_VALUE_VND;
+  // Điểm thưởng tính trên số tiền thực trả của từng đơn
+  const bonus = lines.reduce((s, l) => s + calcBonusPoints((l.product.priceVND || 0) * l.qty - lineUse(l) * POINT_VALUE_VND), 0);
   const needsLogin = !user && lines.some(l => l.product.brandId);
 
   const handleSubmit = async (e) => {
@@ -95,6 +116,7 @@ export default function Checkout() {
         customerInfo,
         paymentMethod,
         orderCode,
+        pointsUsed: lineUse(line),
         silent: true,
       });
       if (res && !res.error) done.push({ ...line, totalVND: res.totalVND });
@@ -292,8 +314,32 @@ export default function Checkout() {
             </div>
           </div>
 
+          <label className={`flex items-center gap-space-sm p-space-md rounded-nested border ${
+            discountablePoints > 0 ? 'cursor-pointer border-leaf-green/40 bg-surface-container-low' : 'border-outline-variant/40 opacity-60'
+          }`}>
+            <input
+              type="checkbox"
+              checked={usePoints && discountablePoints > 0}
+              disabled={discountablePoints === 0}
+              onChange={(e) => setUsePoints(e.target.checked)}
+              className="w-5 h-5 accent-primary shrink-0"
+            />
+            <span className="flex-1 min-w-0">
+              <span className="block font-semibold">Dùng {discountablePoints} điểm xanh</span>
+              <span className="block text-[11px] text-on-surface-variant">
+                Ví có {wallet.points.toLocaleString('vi-VN')} điểm · giảm tối đa {MAX_DISCOUNT_PERCENT}% mỗi sản phẩm, không quá {MAX_POINTS_PER_ORDER} điểm mỗi lần thanh toán
+              </span>
+            </span>
+            {discountablePoints > 0 && (
+              <span className="font-bold text-leaf-green shrink-0">-{(discountablePoints * POINT_VALUE_VND).toLocaleString('vi-VN')}đ</span>
+            )}
+          </label>
+
           <div className="space-y-1.5 text-body-md border-t border-outline-variant/30 pt-space-md">
-            <div className="flex justify-between"><span className="text-on-surface-variant">Tạm tính ({totalQty} sản phẩm)</span><span>{totalVND.toLocaleString('vi-VN')}đ</span></div>
+            <div className="flex justify-between"><span className="text-on-surface-variant">Tạm tính ({totalQty} sản phẩm)</span><span>{subtotalVND.toLocaleString('vi-VN')}đ</span></div>
+            {pointsUsed > 0 && (
+              <div className="flex justify-between"><span className="text-on-surface-variant">Giảm bằng {pointsUsed} điểm xanh</span><span className="text-leaf-green font-semibold">-{(pointsUsed * POINT_VALUE_VND).toLocaleString('vi-VN')}đ</span></div>
+            )}
             <div className="flex justify-between"><span className="text-on-surface-variant">Phí vận chuyển</span><span className="text-leaf-green font-semibold">Miễn phí</span></div>
             {bonus > 0 && (
               <div className="flex justify-between"><span className="text-on-surface-variant">Điểm xanh nhận được</span><span className="text-leaf-green font-semibold">+{bonus} điểm</span></div>

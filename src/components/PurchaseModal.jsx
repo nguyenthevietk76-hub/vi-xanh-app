@@ -2,17 +2,28 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { getVietQRUrl, isVietQRConfigured } from '../lib/vietqr';
-import { calcBonusPoints } from '../lib/points';
+import { calcBonusPoints, maxDiscountPoints, DISCOUNT_RULE_TEXT, POINT_VALUE_VND } from '../lib/points';
+
+// Địa chỉ đã lưu ở lần thanh toán trước (trang Thanh toán lưu cùng key này)
+function loadShipping() {
+  try {
+    const s = JSON.parse(localStorage.getItem('vx_shipping') || 'null');
+    return s && typeof s === 'object' ? s : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function PurchaseModal() {
-  const { purchaseModalProduct, closePurchaseModal, buyProduct, user } = useApp();
+  const { purchaseModalProduct, closePurchaseModal, buyProduct, wallet } = useApp();
 
   const [quantity, setQuantity] = useState(1);
-  const [customerInfo, setCustomerInfo] = useState({
-    name: user?.name || 'Nguyễn Minh Anh',
-    phone: '0912 345 678',
-    address: '144 Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
+  const [customerInfo, setCustomerInfo] = useState(() => {
+    const saved = loadShipping();
+    return { name: saved?.name || '', phone: saved?.phone || '', address: saved?.address || '' };
   });
+  // Dùng điểm xanh làm mã giảm giá (≤ 50% giá trị đơn, ≤ 200 điểm — xem maxDiscountPoints)
+  const [usePoints, setUsePoints] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [isSubmitting, setIsSubmitting] = useState(false);
   // 'form' = đang nhập thông tin đặt hàng, 'qr' = đơn đã tạo, đang chờ khách quét mã chuyển khoản
@@ -24,8 +35,12 @@ export default function PurchaseModal() {
 
   const product = purchaseModalProduct;
   const unitPrice = product.priceVND || 0;
-  const totalPrice = unitPrice * quantity;
-  // Điểm thưởng: 1 điểm / 10.000đ — firestore.rules đối chiếu đúng công thức này
+  const subtotal = unitPrice * quantity;
+  const discountablePoints = maxDiscountPoints(subtotal, wallet.points);
+  const pointsUsed = usePoints ? discountablePoints : 0;
+  const discountVND = pointsUsed * POINT_VALUE_VND;
+  const totalPrice = subtotal - discountVND;
+  // Điểm thưởng tính trên số tiền thực trả: 1 điểm / 10.000đ — firestore.rules đối chiếu đúng công thức này
   const bonusPoints = calcBonusPoints(totalPrice);
 
   const handleClose = () => {
@@ -34,6 +49,7 @@ export default function PurchaseModal() {
     setStep('form');
     setOrderResult(null);
     setQuantity(1);
+    setUsePoints(false);
   };
 
   const handleCopyContent = () => {
@@ -46,6 +62,9 @@ export default function PurchaseModal() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    try {
+      localStorage.setItem('vx_shipping', JSON.stringify({ ...(loadShipping() || {}), ...customerInfo }));
+    } catch { /* bỏ qua */ }
 
     setTimeout(async () => {
       const result = await buyProduct({
@@ -53,6 +72,7 @@ export default function PurchaseModal() {
         quantity,
         customerInfo,
         paymentMethod,
+        pointsUsed,
       });
       setIsSubmitting(false);
 
@@ -239,6 +259,32 @@ export default function PurchaseModal() {
               </div>
             </div>
 
+            {/* Dùng điểm xanh giảm giá */}
+            <label className={`flex items-center gap-space-md p-space-md rounded-card border transition-colors ${
+              discountablePoints > 0 ? 'cursor-pointer border-leaf-green/40 bg-surface-container-low' : 'border-outline-variant/40 opacity-60'
+            }`}>
+              <input
+                type="checkbox"
+                checked={usePoints && discountablePoints > 0}
+                disabled={discountablePoints === 0}
+                onChange={(e) => setUsePoints(e.target.checked)}
+                className="w-5 h-5 accent-primary shrink-0"
+              />
+              <span className="flex-1 min-w-0">
+                <span className="block text-label-lg font-semibold text-on-surface">
+                  Dùng {discountablePoints.toLocaleString('vi-VN')} điểm xanh
+                </span>
+                <span className="block text-label-sm text-on-surface-variant">
+                  Ví có {wallet.points.toLocaleString('vi-VN')} điểm · {DISCOUNT_RULE_TEXT} · 1 điểm = {POINT_VALUE_VND.toLocaleString('vi-VN')}đ
+                </span>
+              </span>
+              {discountablePoints > 0 && (
+                <span className="text-label-lg font-bold text-leaf-green shrink-0">
+                  -{(discountablePoints * POINT_VALUE_VND).toLocaleString('vi-VN')}đ
+                </span>
+              )}
+            </label>
+
             {/* Green Points Bonus Banner */}
             <div className="bg-primary-container/70 border border-leaf-green/30 rounded-card p-space-md flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -327,8 +373,14 @@ export default function PurchaseModal() {
             <div className="border-t border-outline-variant/30 pt-space-md space-y-1.5 text-body-md text-on-surface-variant">
               <div className="flex justify-between">
                 <span>Tạm tính ({quantity} sản phẩm):</span>
-                <span className="font-semibold text-on-surface">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                <span className="font-semibold text-on-surface">{subtotal.toLocaleString('vi-VN')}đ</span>
               </div>
+              {pointsUsed > 0 && (
+                <div className="flex justify-between">
+                  <span>Giảm bằng {pointsUsed} điểm xanh:</span>
+                  <span className="text-leaf-green font-semibold">-{discountVND.toLocaleString('vi-VN')}đ</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Phí vận chuyển:</span>
                 <span className="text-leaf-green font-semibold">Miễn phí</span>

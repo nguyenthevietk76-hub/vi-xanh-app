@@ -5,6 +5,10 @@ service cloud.firestore {
     // ── Hằng số — PHẢI khớp với src/lib/points.js ──
     function WELCOME_POINTS() { return 20; }
     function BONUS_VND_PER_POINT() { return 10000; }
+    function POINT_VALUE_VND() { return 1000; }
+    // Sản phẩm thường: điểm chỉ là mã giảm giá — tối đa 50% giá trị đơn và không quá 200 điểm
+    function MAX_POINTS_PER_ORDER() { return 200; }
+    function MAX_DISCOUNT_PERCENT() { return 50; }
     function TRADE_IN_CATEGORIES() { return ['clothes_a', 'clothes_b', 'clothes_c', 'coffee']; }
 
     function isSignedIn() {
@@ -33,7 +37,7 @@ service cloud.firestore {
     // ─────────────────────────────────────────────
     // Điểm xanh — client KHÔNG BAO GIỜ tự đặt số điểm tuỳ ý.
     // Điểm chỉ thay đổi qua 1 trong 4 đường, mỗi đường gắn với 1 chứng từ:
-    //   (a) Người dùng đổi điểm lấy sản phẩm → trừ đúng pointsUsed của đơn redeem tạo cùng lúc
+    //   (a) Người dùng đổi sản phẩm độc quyền / dùng điểm giảm giá → trừ đúng pointsUsed của đơn tạo cùng lúc
     //   (b) Brand hoàn tất đơn mua          → cộng đúng pointsEarned của đơn đó
     //   (c) Brand huỷ đơn đổi điểm           → hoàn đúng pointsUsed của đơn đó
     //   (d) Admin duyệt yêu cầu thu gom      → admin cộng điểm (admin là bên tin cậy)
@@ -47,7 +51,8 @@ service cloud.firestore {
           && changed().hasOnly(['points', 'lastOrderId'])
           && isOrderCreatedNow(oid)
           && o.buyerId == userId
-          && o.type == 'redeem'
+          && o.type in ['redeem', 'buy']
+          && o.get('pointsUsed', 0) >= 1
           && request.resource.data.points is int
           && request.resource.data.points >= 0
           && resource.data.points - request.resource.data.points == o.pointsUsed;
@@ -65,6 +70,9 @@ service cloud.firestore {
           && before.status != after.status
           && (
             (after.get('type', 'buy') == 'buy' && after.status == 'completed' && delta == after.pointsEarned)
+            // Huỷ đơn mua đã dùng điểm giảm giá → hoàn lại đúng số điểm đã dùng
+            || (after.get('type', 'buy') == 'buy' && after.status == 'cancelled'
+                && after.get('pointsUsed', 0) >= 1 && delta == after.pointsUsed)
             || (after.get('type', 'buy') == 'redeem' && after.status == 'cancelled' && delta == after.pointsUsed)
           );
     }
@@ -136,11 +144,16 @@ service cloud.firestore {
 
     // Giá VNĐ, giá điểm, tồn kho phải là số dương hợp lệ — chặn giá điểm âm
     // (đổi sản phẩm giá -1000 điểm sẽ CỘNG điểm cho người đổi).
+    // Sản phẩm độc quyền (redeemOnly) chỉ có giá điểm; sản phẩm thường phải có giá VNĐ.
     function isValidProductData() {
       let p = request.resource.data;
-      return p.priceVND is number && p.priceVND > 0 && p.priceVND <= 100000000
-          && p.points is int && p.points >= 1
-          && p.stock is int && p.stock >= 0;
+      return p.stock is int && p.stock >= 0
+          && (
+            (p.get('redeemOnly', false) == true
+              && p.points is int && p.points >= 1 && p.points <= 100000)
+            || (p.get('redeemOnly', false) != true
+              && p.priceVND is number && p.priceVND > 0 && p.priceVND <= 100000000)
+          );
     }
 
     match /products/{productId} {
@@ -175,15 +188,28 @@ service cloud.firestore {
           // Tồn kho phải được trừ trong cùng transaction
           && getAfter(productPath).data.lastOrderId == orderId
           && (
+            // Đổi trọn bằng điểm: CHỈ sản phẩm độc quyền
             (o.type == 'redeem'
+              && p.get('redeemOnly', false) == true
               && o.quantity == 1
               && o.pointsUsed is int && o.pointsUsed >= 1
               && o.pointsUsed == p.points
               && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastOrderId == orderId)
+            // Mua bằng VNĐ, được dùng điểm giảm giá: ≤ MAX_DISCOUNT_PERCENT% đơn và ≤ MAX_POINTS_PER_ORDER điểm
             || (o.type == 'buy'
+              && p.get('redeemOnly', false) != true
               && o.priceVND is number && o.priceVND > 0
               && o.priceVND == p.priceVND
-              && o.totalVND == p.priceVND * o.quantity
+              && o.get('pointsUsed', 0) is int
+              && o.get('pointsUsed', 0) >= 0
+              && o.get('pointsUsed', 0) <= MAX_POINTS_PER_ORDER()
+              && o.get('discountVND', 0) == o.get('pointsUsed', 0) * POINT_VALUE_VND()
+              && o.totalVND == p.priceVND * o.quantity - o.get('discountVND', 0)
+              && o.get('discountVND', 0) * 100 <= p.priceVND * o.quantity * MAX_DISCOUNT_PERCENT()
+              && o.totalVND > 0
+              // Có dùng điểm → điểm phải được trừ trong cùng transaction
+              && (o.get('pointsUsed', 0) == 0
+                  || getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastOrderId == orderId)
               && o.pointsEarned == math.floor(o.totalVND / BONUS_VND_PER_POINT())
               && o.paymentMethod in ['COD', 'VIETQR', 'MOMO']
               && ((o.paymentMethod == 'COD' && o.paymentStatus == 'cod')

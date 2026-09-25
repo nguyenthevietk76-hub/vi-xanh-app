@@ -59,6 +59,9 @@ export default function MyRealOrders() {
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <span className="text-title-md font-bold text-primary">
                   {o.type === 'redeem' ? `-${o.pointsUsed} điểm` : `${(o.totalVND || 0).toLocaleString('vi-VN')}đ`}
+                  {o.type !== 'redeem' && o.pointsUsed > 0 && (
+                    <span className="block text-label-sm font-normal text-on-surface-variant">đã dùng {o.pointsUsed} điểm giảm giá</span>
+                  )}
                 </span>
                 {/* P0-2: Chip trạng thái đơn hàng — cập nhật real-time */}
                 <div className="flex items-center gap-1">

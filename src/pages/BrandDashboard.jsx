@@ -5,9 +5,9 @@ import { db, storage } from '../lib/firebase';
 import { collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, updateDoc, doc, serverTimestamp, runTransaction, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Chip from '../components/Chip';
-import { vndToPoints } from '../lib/points';
+import { DISCOUNT_RULE_TEXT } from '../lib/points';
 
-const CATEGORY_OPTIONS = ['Bình nước', 'Túi vải', 'Đồ gia dụng', 'Cây xanh', 'Khác'];
+const CATEGORY_OPTIONS = ['Túi & phụ kiện', 'Đồ len đan tay', 'Trang trí nhà', 'Gốm & bếp', 'Nến & chăm sóc', 'Đồ dùng xanh', 'Khác'];
 
 // P0-2: Luồng trạng thái hợp lệ cho đơn hàng
 const ORDER_STATUS_TRANSITIONS = {
@@ -76,10 +76,9 @@ export default function BrandDashboard() {
   const { confirmOrderPayment, showToast } = useApp();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [form, setForm] = useState({
-    name: '', description: '', category: CATEGORY_OPTIONS[0],
-    priceVND: '', points: '', stock: '',
-  });
+  // redeemOnly = sản phẩm độc quyền: không bán, chỉ đổi trọn bằng điểm (giá = points).
+  // Sản phẩm thường: bán bằng VNĐ, người mua được dùng điểm để giảm giá (DISCOUNT_RULE_TEXT).
+  const [form, setForm] = useState({ name: '', description: '', category: CATEGORY_OPTIONS[0], priceVND: '', points: '', stock: '', redeemOnly: false });
   const [imageFile, setImageFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -105,12 +104,9 @@ export default function BrandDashboard() {
     return unsub;
   }, [user]);
 
-  // Giá đổi điểm luôn = giá VNĐ ÷ 1.000 (1 điểm ≈ 1.000đ) — tự tính khi nhập giá
   const handleChange = (field) => (e) => {
-    const value = e.target.value;
-    setForm(f => field === 'priceVND'
-      ? { ...f, priceVND: value, points: value ? String(vndToPoints(value)) : '' }
-      : { ...f, [field]: value });
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm(f => ({ ...f, [field]: value }));
   };
 
   // P1-1: Bấm "Sửa" → prefill form
@@ -121,8 +117,9 @@ export default function BrandDashboard() {
       description: product.description || '',
       category: product.category || CATEGORY_OPTIONS[0],
       priceVND: String(product.priceVND || ''),
-      points: product.priceVND ? String(vndToPoints(product.priceVND)) : '',
+      points: String(product.points || ''),
       stock: String(product.stock || ''),
+      redeemOnly: product.redeemOnly === true,
     });
     setImageFile(null);
     setError('');
@@ -131,7 +128,7 @@ export default function BrandDashboard() {
 
   const cancelEdit = () => {
     setEditingProduct(null);
-    setForm({ name: '', description: '', category: CATEGORY_OPTIONS[0], priceVND: '', points: '', stock: '' });
+    setForm({ name: '', description: '', category: CATEGORY_OPTIONS[0], priceVND: '', points: '', stock: '', redeemOnly: false });
     setImageFile(null);
     setError('');
   };
@@ -139,7 +136,8 @@ export default function BrandDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.priceVND || !form.stock) {
+    const priceMissing = form.redeemOnly ? !(parseInt(form.points, 10) >= 1) : !(Number(form.priceVND) > 0);
+    if (!form.name.trim() || priceMissing || form.stock === '') {
       setError('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
@@ -160,15 +158,19 @@ export default function BrandDashboard() {
         imageURL = await getDownloadURL(imgRef);
       }
 
+      // Giá: độc quyền → chỉ giá điểm; thường → chỉ giá VNĐ (firestore.rules: isValidProductData)
+      const pricing = form.redeemOnly
+        ? { redeemOnly: true, points: parseInt(form.points, 10), priceVND: 0 }
+        : { redeemOnly: false, priceVND: Number(form.priceVND), points: 0 };
+
       if (editingProduct) {
         // P1-1: Cập nhật sản phẩm hiện có
         await updateDoc(doc(db, 'products', editingProduct.id), {
           name: form.name.trim(),
           description: form.description.trim(),
           category: form.category,
-          priceVND: Number(form.priceVND),
-          points: vndToPoints(form.priceVND),
-          stock: Number(form.stock),
+          ...pricing,
+          stock: parseInt(form.stock, 10) || 0,
           image: imageURL,
         });
         cancelEdit();
@@ -178,21 +180,20 @@ export default function BrandDashboard() {
           name: form.name.trim(),
           description: form.description.trim(),
           category: form.category,
-          priceVND: Number(form.priceVND),
-          points: vndToPoints(form.priceVND),
-          stock: Number(form.stock),
+          ...pricing,
+          stock: parseInt(form.stock, 10) || 0,
           image: imageURL,
-          rating: 5,
+          rating: null,
           reviews: 0,
           weeklyRedeemed: 0,
-          badge: 'new',
+          badge: form.redeemOnly ? 'exclusive' : 'new',
           isNew: true,
           brandId: user.uid,
           brandName: brand?.brandName || '',
           status: 'active',
           createdAt: serverTimestamp(),
         });
-        setForm({ name: '', description: '', category: CATEGORY_OPTIONS[0], priceVND: '', points: '', stock: '' });
+        setForm({ name: '', description: '', category: CATEGORY_OPTIONS[0], priceVND: '', points: '', stock: '', redeemOnly: false });
         setImageFile(null);
         e.target.reset();
       }
@@ -211,7 +212,7 @@ export default function BrandDashboard() {
   // P0-2: Cập nhật trạng thái đơn hàng + P1-3: Thông báo cho khách hàng
   // Trong CÙNG transaction:
   //  - Đơn mua "Hoàn thành"  → cộng điểm thưởng (pointsEarned) cho người mua
-  //  - Đơn đổi điểm "Đã huỷ" → hoàn lại điểm (pointsUsed) cho người mua
+  //  - Đơn đổi điểm / đơn mua có dùng điểm giảm giá "Đã huỷ" → hoàn lại điểm (pointsUsed)
   //  - Đơn bị huỷ           → hoàn lại tồn kho sản phẩm
   // firestore.rules chỉ cho phép cộng đúng số điểm ghi trên đơn, và chỉ 1 lần.
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
@@ -230,6 +231,8 @@ export default function BrandDashboard() {
         const creditPoints =
           current.type === 'buy' && newStatus === 'completed' ? (current.pointsEarned || 0)
           : current.type === 'redeem' && newStatus === 'cancelled' ? (current.pointsUsed || 0)
+          // Đơn mua đã dùng điểm giảm giá bị huỷ → hoàn lại số điểm đã dùng
+          : (current.type || 'buy') === 'buy' && newStatus === 'cancelled' ? (current.pointsUsed || 0)
           : 0;
 
         if (newStatus === 'completed' && (current.type || 'buy') === 'buy'
@@ -319,16 +322,27 @@ export default function BrandDashboard() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-space-sm">
+          <label className="flex items-start gap-space-sm p-space-sm rounded-input bg-surface-container-low cursor-pointer">
+            <input type="checkbox" checked={form.redeemOnly} onChange={handleChange('redeemOnly')} className="mt-1 w-4 h-4 accent-primary" />
+            <span>
+              <span className="block text-label-md font-semibold">Sản phẩm độc quyền đổi điểm</span>
+              <span className="block text-label-sm text-on-surface-variant">
+                Không bán bằng tiền, chỉ đổi trọn bằng điểm xanh. Bỏ chọn để bán bình thường — khách được dùng điểm để giảm giá ({DISCOUNT_RULE_TEXT}).
+              </span>
+            </span>
+          </label>
+
+          {form.redeemOnly ? (
             <div>
-              <label className="block text-label-md font-semibold mb-1">Giá (VNĐ) *</label>
-              <input type="number" min="0" value={form.priceVND} onChange={handleChange('priceVND')} className="w-full h-10 px-space-md bg-surface-container-high rounded-input text-body-sm" />
+              <label className="block text-label-md font-semibold mb-1">Giá đổi (điểm xanh) *</label>
+              <input type="number" min="1" step="1" value={form.points} onChange={handleChange('points')} className="w-full h-10 px-space-md bg-surface-container-high rounded-input text-body-sm" />
             </div>
+          ) : (
             <div>
-              <label className="block text-label-md font-semibold mb-1">Điểm xanh (tự tính)</label>
-              <input type="number" value={form.points} readOnly tabIndex={-1} title="Tự tính: giá VNĐ ÷ 1.000" className="w-full h-10 px-space-md bg-surface-container-low rounded-input text-body-sm text-on-surface-variant cursor-not-allowed" />
+              <label className="block text-label-md font-semibold mb-1">Giá bán (VNĐ) *</label>
+              <input type="number" min="1000" step="1000" value={form.priceVND} onChange={handleChange('priceVND')} className="w-full h-10 px-space-md bg-surface-container-high rounded-input text-body-sm" />
             </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-label-md font-semibold mb-1">Số lượng tồn kho *</label>
@@ -368,7 +382,7 @@ export default function BrandDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-label-lg font-semibold truncate">{p.name}</p>
                     <p className="text-label-sm text-on-surface-variant">
-                      {p.priceVND?.toLocaleString('vi-VN')}đ · {p.points} điểm · Còn {p.stock}
+                      {p.redeemOnly ? `Độc quyền · ${p.points} điểm` : `${(p.priceVND || 0).toLocaleString('vi-VN')}đ`} · Còn {p.stock}
                     </p>
                   </div>
                   <div className="flex gap-space-xs shrink-0">
@@ -420,6 +434,9 @@ export default function BrandDashboard() {
                     <div className="text-right">
                       <p className="text-label-lg font-bold text-primary">
                         {o.type === 'redeem' ? `${o.pointsUsed} điểm` : `${(o.totalVND || 0).toLocaleString('vi-VN')}đ`}
+                        {o.type !== 'redeem' && o.pointsUsed > 0 && (
+                          <span className="block text-label-sm font-normal text-on-surface-variant">đã giảm {o.pointsUsed} điểm</span>
+                        )}
                       </p>
                       <p className="text-label-sm text-on-surface-variant">
                         {o.createdAt?.toDate

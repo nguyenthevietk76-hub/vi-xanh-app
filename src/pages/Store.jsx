@@ -8,6 +8,7 @@ import ScrollReveal from '../components/ScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { isRedeemOnly, MAX_POINTS_PER_ORDER, MAX_DISCOUNT_PERCENT, POINT_VALUE_VND } from '../lib/points';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 
@@ -61,18 +62,18 @@ export default function Store() {
     }
 
     // Tab filter
-    if (activeTab === 'sale') result = result.filter(p => p.badge === 'sale' || p.priceOriginal);
-    else if (activeTab === 'points-only') result = result.filter(p => p.points <= 150 || p.badge === 'points-only');
+    if (activeTab === 'redeem') result = result.filter(p => isRedeemOnly(p));
+    else if (activeTab === 'buy') result = result.filter(p => !isRedeemOnly(p));
     else if (activeTab === 'new') result = result.filter(p => p.isNew);
-    else if (activeTab === 'combo') result = result.filter(p => p.category === 'Đồ gia dụng' || p.badge === 'hot');
 
     // Category filter
     if (selectedCategory !== 'all') result = result.filter(p => p.category === selectedCategory);
 
-    // Sort
-    if (sortBy === 'price-low') result.sort((a, b) => (a.priceVND || 0) - (b.priceVND || 0));
-    else if (sortBy === 'price-high') result.sort((a, b) => (b.priceVND || 0) - (a.priceVND || 0));
-    else result.sort((a, b) => b.weeklyRedeemed - a.weeklyRedeemed);
+    // Sort — sản phẩm độc quyền so theo giá trị điểm quy ra VNĐ
+    const sortPrice = (p) => (isRedeemOnly(p) ? (p.points || 0) * POINT_VALUE_VND : (p.priceVND || 0));
+    if (sortBy === 'price-low') result.sort((a, b) => sortPrice(a) - sortPrice(b));
+    else if (sortBy === 'price-high') result.sort((a, b) => sortPrice(b) - sortPrice(a));
+    else result.sort((a, b) => (b.weeklyRedeemed || 0) - (a.weeklyRedeemed || 0));
 
     return result;
   }, [products, activeTab, selectedCategory, sortBy, searchQuery]);
@@ -91,9 +92,6 @@ export default function Store() {
     return filtered.slice(start, start + ITEMS_PER_PAGE);
   }, [filtered, currentPage]);
 
-  // Countdown timer for flash sale
-  const [countdown] = useState({ h: 2, m: 14, s: 40 });
-
   return (
     <div className="max-w-content mx-auto w-full px-margin-mobile md:px-margin-tablet lg:px-margin-desktop py-space-2xl">
       {/* Breadcrumb + Wallet */}
@@ -108,14 +106,14 @@ export default function Store() {
         </div>
       </div>
 
-      {/* Flash Sale Banner with Eco Image */}
+      {/* Banner: cách dùng điểm xanh trong cửa hàng */}
       <ScrollReveal preset="fade-up">
         <div className="relative overflow-hidden rounded-hero mb-space-xl text-on-primary shadow-level-2">
           {/* Background Image with Gradient Overlay */}
           <div className="absolute inset-0 z-0">
             <img 
-              src="/images/banners/banner_flash_sale.jpg" 
-              alt="Flash Sale Xanh" 
+              src="/images/shop/x-tranh-ghep-vai.jpg" 
+              alt="" 
               className="w-full h-full object-cover object-center filter brightness-[0.35] saturate-125 scale-105 transition-transform duration-700 hover:scale-100"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-tertiary-container/85 mix-blend-multiply" />
@@ -124,32 +122,22 @@ export default function Store() {
           <div className="relative z-10 p-4 sm:p-space-xl md:p-space-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md backdrop-blur-[1px]">
             <div className="flex items-center gap-space-md">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary-fixed/20 border border-secondary-fixed/40 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[24px] sm:text-[28px] text-secondary-fixed">bolt</span>
+                <span className="material-symbols-outlined text-[24px] sm:text-[28px] text-secondary-fixed">workspace_premium</span>
               </div>
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-fixed/25 text-secondary-fixed text-[10px] sm:text-[11px] font-bold uppercase tracking-wider mb-1">
-                  Ưu đãi có hạn
+                  Chỉ dành cho thành viên
                 </div>
-                <h3 className="text-title-md sm:text-title-lg md:text-headline-sm font-bold">Flash sale xanh — giảm đến 30%</h3>
-                <p className="text-body-xs sm:text-body-sm text-[#DCEEDF]/90">Số lượng có hạn, làm mới không gian sống bền vững với điểm thưởng</p>
+                <h3 className="text-title-md sm:text-title-lg md:text-headline-sm font-bold">Quà độc quyền — chỉ đổi bằng điểm xanh</h3>
+                <p className="text-body-xs sm:text-body-sm text-[#DCEEDF]/90">Với sản phẩm khác, điểm xanh là mã giảm giá: giảm tối đa {MAX_DISCOUNT_PERCENT}% giá trị đơn, không quá {MAX_POINTS_PER_ORDER} điểm (= {(MAX_POINTS_PER_ORDER * POINT_VALUE_VND).toLocaleString('vi-VN')}đ).</p>
               </div>
             </div>
             <div className="flex items-center gap-space-sm sm:gap-space-md flex-wrap justify-start sm:justify-center w-full md:w-auto">
-              <div className="flex items-center gap-1">
-                {[countdown.h, countdown.m, countdown.s].map((v, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    <span className="bg-white/20 backdrop-blur-md rounded-nested px-2.5 py-1 sm:px-3 sm:py-1.5 text-label-lg sm:text-title-md font-bold text-white shadow-sm border border-white/20">
-                      {String(v).padStart(2, '0')}
-                    </span>
-                    {i < 2 && <span className="text-label-lg sm:text-title-md font-bold text-white">:</span>}
-                  </span>
-                ))}
-              </div>
               <button 
-                onClick={() => setActiveTab('sale')}
+                onClick={() => setActiveTab('redeem')}
                 className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-secondary-fixed text-primary rounded-input font-bold text-label-sm sm:text-label-md hover:bg-white transition-all duration-200 flex items-center gap-1 shadow-sm"
               >
-                Xem tất cả <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
+                Xem quà độc quyền <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
               </button>
             </div>
           </div>
@@ -159,9 +147,9 @@ export default function Store() {
       {/* Trust Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-around gap-2 sm:gap-space-xl mb-space-lg sm:mb-space-xl text-body-xs sm:text-body-md text-on-surface-variant bg-surface-container-lowest rounded-card p-3 sm:p-space-md shadow-subtle">
         {[
-          { icon: 'local_shipping', text: 'Miễn phí vận chuyển từ 300.000đ' },
-          { icon: 'autorenew', text: 'Đổi trả trong 7 ngày' },
-          { icon: 'verified_user', text: 'Thanh toán an toàn & Bảo vệ' },
+          { icon: 'sell', text: `Điểm giảm tối đa ${MAX_DISCOUNT_PERCENT}% đơn (≤ ${MAX_POINTS_PER_ORDER} điểm)` },
+          { icon: 'workspace_premium', text: 'Quà độc quyền chỉ đổi bằng điểm' },
+          { icon: 'eco', text: 'Mua hàng được tích thêm điểm xanh' },
         ].map(item => (
           <div key={item.text} className="flex items-center gap-2 sm:gap-space-xs">
             <span className="material-symbols-outlined text-[18px] sm:icon-md text-secondary shrink-0">{item.icon}</span>
@@ -293,8 +281,8 @@ export default function Store() {
               className="bg-surface-container-lowest border border-outline-variant rounded-input px-space-md py-space-xs text-body-md appearance-none cursor-pointer"
             >
               <option value="popular">Phổ biến nhất</option>
-              <option value="price-low">Điểm: Thấp → Cao</option>
-              <option value="price-high">Điểm: Cao → Thấp</option>
+              <option value="price-low">Giá: Thấp → Cao</option>
+              <option value="price-high">Giá: Cao → Thấp</option>
             </select>
           </div>
 

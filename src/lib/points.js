@@ -26,7 +26,7 @@ export const TRADE_IN_MIN_KG = 0.5;
 export const TRADE_IN_MAX_KG = 50;
 
 // Hệ số CO₂ ước tính (kg CO₂ giảm / kg thu gom) — chỉ để hiển thị
-const CO2_FACTOR = { clothes_a: 1.6, clothes_b: 1.6, clothes_c: 1.6, coffee: 0.5 };
+export const CO2_FACTOR = { clothes_a: 1.6, clothes_b: 1.6, clothes_c: 1.6, coffee: 0.5 };
 
 export function getTradeInRate(id) {
   return TRADE_IN_RATES.find(r => r.id === id) || null;
@@ -51,7 +51,24 @@ export function pointsToVND(points) {
   return Math.max(0, Math.round(points || 0)) * POINT_VALUE_VND;
 }
 
-// Giá đổi điểm mặc định của sản phẩm = giá VNĐ ÷ 1.000 (làm tròn lên)
-export function vndToPoints(priceVND) {
-  return Math.ceil((Number(priceVND) || 0) / POINT_VALUE_VND);
+/* ── Dùng điểm khi mua hàng ──
+   Sản phẩm thường: điểm chỉ là MÃ GIẢM GIÁ (1 điểm = POINT_VALUE_VND), mỗi đơn được giảm
+   tối đa MAX_DISCOUNT_PERCENT% giá trị đơn VÀ không quá MAX_POINTS_PER_ORDER điểm — lấy mức thấp hơn.
+   Ví dụ: đơn 150.000đ → tối đa 75 điểm; đơn 600.000đ → tối đa 200 điểm.
+   Chỉ sản phẩm độc quyền (redeemOnly) mới đổi hoàn toàn bằng điểm.
+   (firestore.rules: MAX_POINTS_PER_ORDER, MAX_DISCOUNT_PERCENT, POINT_VALUE_VND) */
+export const MAX_POINTS_PER_ORDER = 200;
+export const MAX_DISCOUNT_PERCENT = 50;
+
+export function isRedeemOnly(product) {
+  return product?.redeemOnly === true;
 }
+
+// Số điểm tối đa được dùng để giảm giá cho 1 đơn có tổng tiền subtotalVND
+export function maxDiscountPoints(subtotalVND, balance = Infinity) {
+  const byPercent = Math.floor(((Number(subtotalVND) || 0) * MAX_DISCOUNT_PERCENT) / 100 / POINT_VALUE_VND);
+  return Math.max(0, Math.min(MAX_POINTS_PER_ORDER, Math.floor(balance) || 0, byPercent));
+}
+
+// Mô tả ngắn quy tắc giảm giá để hiển thị trên giao diện
+export const DISCOUNT_RULE_TEXT = `tối đa ${MAX_DISCOUNT_PERCENT}% giá trị đơn, không quá ${MAX_POINTS_PER_ORDER} điểm`;

@@ -4,7 +4,7 @@ import { useCart, groupByShop, MAX_CART_QTY } from '../context/CartContext';
 import { calcBonusPoints } from '../lib/points';
 import LoadingFallback from '../components/LoadingFallback';
 
-const FALLBACK_IMG = '/images/products/binh_giu_nhiet.jpg';
+const FALLBACK_IMG = '/images/logo.png'; // ảnh trung tính khi ảnh sản phẩm lỗi
 
 function Checkbox({ checked, indeterminate = false, disabled, onChange, label }) {
   const ref = useRef(null);
@@ -155,7 +155,7 @@ export default function Cart() {
                               </Link>
                               {item.unavailable && (
                                 <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-coral-mist text-coral-mist-text">
-                                  {p ? 'Hết hàng' : 'Ngừng bán'}
+                                  {!p ? 'Ngừng bán' : p.redeemOnly ? 'Chỉ đổi bằng điểm' : 'Hết hàng'}
                                 </span>
                               )}
                               {/* Mobile: price */}

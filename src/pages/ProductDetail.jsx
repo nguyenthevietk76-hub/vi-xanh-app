@@ -7,12 +7,12 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart, MAX_CART_QTY } from '../context/CartContext';
 import { useProduct } from '../lib/useProduct';
-import { calcBonusPoints } from '../lib/points';
+import { calcBonusPoints, isRedeemOnly, maxDiscountPoints, DISCOUNT_RULE_TEXT, POINT_VALUE_VND } from '../lib/points';
 import ProductCard from '../components/ProductCard';
 import Chip from '../components/Chip';
 import LoadingFallback from '../components/LoadingFallback';
 
-const FALLBACK_IMG = '/images/products/binh_giu_nhiet.jpg';
+const FALLBACK_IMG = '/images/logo.png'; // ảnh trung tính khi ảnh sản phẩm lỗi
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -70,8 +70,12 @@ export default function ProductDetail() {
   const discount = product.priceOriginal && product.priceOriginal > priceVND
     ? Math.round((1 - priceVND / product.priceOriginal) * 100)
     : null;
-  const bonusPoints = calcBonusPoints(priceVND * qty);
-  const canAfford = wallet.points >= product.points;
+  // Sản phẩm độc quyền: chỉ đổi trọn bằng điểm. Sản phẩm thường: điểm chỉ để giảm giá (tối đa 200/đơn)
+  const exclusive = isRedeemOnly(product);
+  const points = product.points || 0;
+  const bonusPoints = exclusive ? 0 : calcBonusPoints(priceVND * qty);
+  const maxDiscountVND = maxDiscountPoints(priceVND * qty) * POINT_VALUE_VND;
+  const canAfford = wallet.points >= points;
   const description = product.description || product.desc || '';
   const shopName = product.brandName || 'Ví Xanh';
 
@@ -112,14 +116,18 @@ export default function ProductDetail() {
             onError={() => setImgError(true)}
             className="w-full h-full object-cover"
           />
-          {discount && (
+          {exclusive ? (
+            <div className="absolute top-space-md left-space-md">
+              <Chip variant="points-only" icon="workspace_premium">Độc quyền đổi điểm</Chip>
+            </div>
+          ) : discount && (
             <div className="absolute top-space-md left-space-md">
               <Chip variant="sale">-{discount}%</Chip>
             </div>
           )}
           {outOfStock && (
             <div className="absolute inset-0 bg-primary/50 flex items-center justify-center">
-              <span className="px-5 py-2 rounded-chip bg-surface-container-lowest text-on-surface font-bold">Hết hàng</span>
+              <span className="px-5 py-2 rounded-chip bg-surface-container-lowest text-on-surface font-bold">{exclusive ? 'Đã hết quà' : 'Hết hàng'}</span>
             </div>
           )}
         </div>
@@ -132,17 +140,40 @@ export default function ProductDetail() {
 
           {/* Rating · sold */}
           <div className="flex items-center gap-space-md text-body-sm text-on-surface-variant mb-space-lg flex-wrap">
-            <span className="flex items-center gap-1">
-              <span className="font-semibold text-on-surface underline underline-offset-2">{product.rating ?? '—'}</span>
-              <span className="material-symbols-outlined text-[16px] text-sunlit-ochre-text">star</span>
-            </span>
-            <span className="w-px h-4 bg-outline-variant" />
-            <span><span className="font-semibold text-on-surface">{product.reviews ?? 0}</span> đánh giá</span>
-            <span className="w-px h-4 bg-outline-variant" />
-            <span><span className="font-semibold text-on-surface">{product.weeklyRedeemed ?? 0}</span> đã bán tuần này</span>
+            {product.rating ? (
+              <>
+                <span className="flex items-center gap-1">
+                  <span className="font-semibold text-on-surface underline underline-offset-2">{product.rating}</span>
+                  <span className="material-symbols-outlined text-[16px] text-sunlit-ochre-text">star</span>
+                </span>
+                <span className="w-px h-4 bg-outline-variant" />
+                <span><span className="font-semibold text-on-surface">{product.reviews ?? 0}</span> đánh giá</span>
+              </>
+            ) : (
+              <span>Chưa có đánh giá</span>
+            )}
+            {product.weeklyRedeemed > 0 && (
+              <>
+                <span className="w-px h-4 bg-outline-variant" />
+                <span><span className="font-semibold text-on-surface">{product.weeklyRedeemed}</span> lượt {exclusive ? 'đổi' : 'mua'} tuần này</span>
+              </>
+            )}
           </div>
 
           {/* Price block */}
+          {exclusive ? (
+          <div className="bg-primary-container/50 border border-leaf-green/30 rounded-card p-space-md sm:p-space-lg mb-space-lg">
+            <div className="flex items-center gap-space-sm">
+              <span className="material-symbols-outlined text-[28px] text-secondary">eco</span>
+              <span className="text-headline-lg-mobile sm:text-headline-lg text-primary font-bold">
+                {points.toLocaleString('vi-VN')} điểm xanh
+              </span>
+            </div>
+            <p className="text-body-sm text-on-surface-variant mt-space-xs">
+              Quà độc quyền — không bán bằng tiền, chỉ dành cho thành viên đổi bằng điểm xanh tích được từ việc gửi quần áo cũ và bã cà phê.
+            </p>
+          </div>
+          ) : (
           <div className="bg-surface-container-low rounded-card p-space-md sm:p-space-lg mb-space-lg">
             <div className="flex items-baseline gap-space-sm flex-wrap">
               {product.priceOriginal && product.priceOriginal > priceVND && (
@@ -156,7 +187,11 @@ export default function ProductDetail() {
               {discount && <Chip variant="sale" className="!py-0.5 !px-2 text-[11px]">Giảm {discount}%</Chip>}
             </div>
             <div className="flex items-center gap-space-sm mt-space-xs flex-wrap text-body-sm">
-              <span className="text-secondary">hoặc đổi bằng <strong>{(product.points || 0).toLocaleString('vi-VN')} điểm xanh</strong></span>
+              {maxDiscountVND > 0 && (
+                <span className="text-secondary">
+                  Dùng điểm xanh giảm đến <strong>{maxDiscountVND.toLocaleString('vi-VN')}đ</strong> ({DISCOUNT_RULE_TEXT})
+                </span>
+              )}
               {bonusPoints > 0 && (
                 <span className="text-[11px] font-semibold text-leaf-green bg-primary-container/80 px-1.5 py-0.5 rounded">
                   +{bonusPoints} điểm khi mua
@@ -164,6 +199,7 @@ export default function ProductDetail() {
               )}
             </div>
           </div>
+          )}
 
           {/* Details rows */}
           <dl className="grid grid-cols-[110px_1fr] gap-y-space-md text-body-md mb-space-xl">
@@ -176,6 +212,13 @@ export default function ProductDetail() {
             <dt className="text-on-surface-variant">Danh mục</dt>
             <dd>{product.category || '—'}</dd>
 
+            {exclusive ? (
+              <>
+                <dt className="text-on-surface-variant">Còn lại</dt>
+                <dd>{outOfStock ? 'Đã hết quà' : `${stock} suất · mỗi lần đổi 1 sản phẩm`}</dd>
+              </>
+            ) : (
+            <>
             <dt className="text-on-surface-variant self-center">Số lượng</dt>
             <dd className="flex items-center gap-space-md flex-wrap">
               <div className="flex items-center border border-outline-variant rounded-nested overflow-hidden">
@@ -212,6 +255,8 @@ export default function ProductDetail() {
                 {outOfStock ? 'Hết hàng' : `Còn ${stock} sản phẩm`}
               </span>
             </dd>
+            </>
+            )}
           </dl>
 
           {/* Actions */}
@@ -219,6 +264,28 @@ export default function ProductDetail() {
             <div className="bg-surface-container-low rounded-card p-space-md text-body-sm text-on-surface-variant">
               Đây là sản phẩm của brand bạn. Quản lý trong{' '}
               <Link to="/brand/dashboard" className="text-primary font-semibold underline">Bảng điều khiển Brand</Link>.
+            </div>
+          ) : exclusive ? (
+            <div className="mt-auto">
+              {canAfford ? (
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => redeemProduct(product)}
+                  disabled={outOfStock}
+                  className="w-full h-12 rounded-input bg-primary text-on-primary font-bold text-label-lg flex items-center justify-center gap-1.5 hover:bg-secondary transition-colors shadow-subtle disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <span className="material-symbols-outlined text-[20px]">redeem</span>
+                  {outOfStock ? 'Đã hết quà' : `Đổi ngay bằng ${points.toLocaleString('vi-VN')} điểm`}
+                </motion.button>
+              ) : (
+                <button
+                  onClick={openTradeIn}
+                  className="w-full h-12 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-input font-medium text-label-md flex items-center justify-center gap-1.5 border border-outline-variant/50"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-sunlit-ochre-text">recycling</span>
+                  Ví còn thiếu {Math.max(0, points - wallet.points).toLocaleString('vi-VN')} điểm — đổi đồ cũ để nhận điểm
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-space-sm mt-auto">
@@ -241,24 +308,10 @@ export default function ProductDetail() {
                   {outOfStock ? 'Hết hàng' : 'Mua ngay'}
                 </motion.button>
               </div>
-              {canAfford ? (
-                <button
-                  onClick={() => redeemProduct(product)}
-                  disabled={outOfStock}
-                  className="w-full h-11 bg-[#DCEEDF] text-primary hover:bg-[#cbe3ce] rounded-nested font-semibold text-label-md flex items-center justify-center gap-1.5 border border-[#a2cfaf]/70 disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-secondary">eco</span>
-                  Đổi 1 sản phẩm bằng {(product.points || 0).toLocaleString('vi-VN')} điểm
-                </button>
-              ) : (
-                <button
-                  onClick={openTradeIn}
-                  className="w-full h-11 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-nested font-medium text-label-sm flex items-center justify-center gap-1.5 border border-outline-variant/50"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-sunlit-ochre-text">recycling</span>
-                  Ví còn thiếu {Math.max(0, (product.points || 0) - wallet.points).toLocaleString('vi-VN')} điểm — đổi đồ cũ để nhận điểm
-                </button>
-              )}
+              <p className="text-body-sm text-on-surface-variant flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px] text-secondary">sell</span>
+                Chọn dùng điểm xanh để giảm giá ở bước thanh toán.
+              </p>
             </div>
           )}
         </div>

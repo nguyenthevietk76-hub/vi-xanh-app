@@ -6,22 +6,25 @@ import CountUp from '../components/CountUp';
 import ScrollReveal, { ScrollRevealItem } from '../components/ScrollReveal';
 import WalletPointCounter from '../components/WalletPointCounter';
 import ProductCard from '../components/ProductCard';
+import { PROJECT_INFO } from '../data/projectInfo';
+import { TRADE_IN_RATES, POINT_VALUE_VND, isRedeemOnly } from '../lib/points';
 
 export default function Home() {
-  const { openTradeIn, wallet, products, impact } = useApp();
+  const { openTradeIn, wallet, products } = useApp();
   const navigate = useNavigate();
 
-  // Products user can almost afford (within 50 points ≈ 50.000đ)
+  // Quà độc quyền đổi điểm — ưu tiên món ví đủ điểm hoặc gần đủ nhất
   const suggestedProducts = products
-    .filter(p => p.points <= wallet.points + 50 && p.points > 0)
-    .sort((a, b) => a.points - b.points)
+    .filter(p => isRedeemOnly(p) && p.stock > 0)
+    .sort((a, b) => Math.abs(a.points - wallet.points) - Math.abs(b.points - wallet.points))
     .slice(0, 4);
 
+  // Chỉ hiển thị thông tin chương trình có thật (lấy từ cấu hình), không hiển thị số liệu tăng trưởng chưa kiểm chứng
   const metrics = [
-    { label: 'Rác đã thu gom', value: 128, suffix: '', unit: 'tấn', icon: 'recycling' },
-    { label: 'Người dùng', value: 42000, suffix: '+', unit: '', icon: 'groups' },
-    { label: 'Cây xanh quy đổi', value: 15000, suffix: '', unit: '', icon: 'forest' },
-    { label: 'Điểm thu gom', value: 86, suffix: '', unit: 'trạm', icon: 'pin_drop' },
+    { label: 'Loại đồ nhận', value: PROJECT_INFO.acceptedItems.length, suffix: '', unit: 'loại', icon: 'recycling' },
+    { label: 'Điểm thu gom thí điểm', value: PROJECT_INFO.collectionPoints.length, suffix: '', unit: 'điểm', icon: 'pin_drop' },
+    { label: 'Quần áo loại A', value: Math.max(...TRADE_IN_RATES.map(r => r.rate)), suffix: '', unit: 'điểm/kg', icon: 'checkroom' },
+    { label: '1 điểm xanh', value: POINT_VALUE_VND, suffix: 'đ', unit: '', icon: 'eco' },
   ];
 
   return (
@@ -160,7 +163,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md sm:gap-space-lg">
             {[
               { title: 'Đổi đồ cũ', desc: 'Gửi quần áo cũ và bã cà phê để quy đổi thành điểm xanh tiện ích dùng ngay.', icon: 'autorenew', color: 'bg-secondary-fixed/50 text-primary', action: () => openTradeIn(), linkText: 'Đổi ngay', linkColor: 'text-secondary' },
-              { title: 'Đổi sản phẩm', desc: 'Dùng điểm xanh để đổi lấy sản phẩm thân thiện môi trường trong hệ thống cửa hàng Ví Xanh.', icon: 'swap_horiz', color: 'bg-sky-tint text-primary', action: () => navigate('/cua-hang'), linkText: 'Xem sản phẩm', linkColor: 'text-[#3563A8]' },
+              { title: 'Dùng điểm xanh', desc: 'Dùng điểm xanh để giảm giá khi mua (tối đa 50% đơn, không quá 200 điểm), hoặc đổi trọn những món quà độc quyền chỉ dành cho thành viên.', icon: 'swap_horiz', color: 'bg-sky-tint text-primary', action: () => navigate('/cua-hang'), linkText: 'Xem sản phẩm', linkColor: 'text-[#3563A8]' },
               { title: 'Ví xanh', desc: 'Theo dõi số dư điểm, lịch sử giao dịch minh bạch và toàn bộ tác động môi trường bạn đóng góp.', icon: 'account_balance_wallet', color: 'bg-sunlit-ochre text-sunlit-ochre-text', action: () => navigate('/vi-cua-toi'), linkText: 'Xem ví', linkColor: 'text-[#A9822E]' },
             ].map((f, i) => (
               <motion.div
@@ -196,45 +199,36 @@ export default function Home() {
                 loading="lazy"
               />
               <div className="relative z-10 p-4 sm:p-space-2xl bg-gradient-to-t from-primary/95 via-primary/50 to-transparent mt-auto text-on-primary">
-                <span className="text-label-sm uppercase tracking-wider text-secondary-fixed font-semibold">Hiện trường thực tế</span>
-                <h4 className="text-title-md sm:text-title-lg font-semibold mt-1">Trạm quy đổi xanh Quận 1, TP. Hồ Chí Minh</h4>
-                <p className="text-body-xs sm:text-body-sm text-surface-container-low/90 mt-1 max-w-md">Mỗi điểm tiếp nhận được chuẩn hóa quy trình phân loại carbon-neutral.</p>
+                <span className="text-label-sm uppercase tracking-wider text-secondary-fixed font-semibold">Ảnh minh hoạ</span>
+                <h4 className="text-title-md sm:text-title-lg font-semibold mt-1">Điểm thu gom quần áo cũ & bã cà phê</h4>
+                <p className="text-body-xs sm:text-body-sm text-surface-container-low/90 mt-1 max-w-md">Đồ được cân lại và phân loại ngay tại điểm nhận — điểm xanh tính theo cân thực tế.</p>
               </div>
             </div>
 
-            {/* Chart */}
+            {/* Bảng quy đổi điểm — số liệu lấy từ src/lib/points.js */}
             <div className="lg:col-span-5 bg-surface-container rounded-card sm:rounded-hero p-4 sm:p-space-2xl flex flex-col justify-between shadow-subtle">
               <div>
-                <div className="flex items-center justify-between mb-space-sm sm:mb-space-md">
-                  <span className="text-label-sm sm:text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Tác động tuần qua</span>
-                  <span className="px-2.5 py-0.5 sm:py-1 rounded-chip bg-secondary-fixed text-on-secondary-fixed text-label-xs sm:text-label-sm font-semibold">+24.8%</span>
-                </div>
-                <h3 className="text-title-lg sm:text-headline-sm text-primary font-semibold">Biểu đồ CO₂ giảm thiểu</h3>
-                <p className="text-body-xs sm:text-body-sm text-on-surface-variant mt-1 leading-relaxed">Tổng lượng khí thải carbon được ngăn ngừa từ 1.200 món đồ được tái sử dụng thành công.</p>
+                <span className="text-label-sm sm:text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Minh bạch</span>
+                <h3 className="text-title-lg sm:text-headline-sm text-primary font-semibold mt-1">Bảng quy đổi điểm</h3>
+                <p className="text-body-xs sm:text-body-sm text-on-surface-variant mt-1 leading-relaxed">Điểm được tính theo số kg cân tại điểm thu gom.</p>
               </div>
-              <div className="my-space-lg sm:my-space-xl">
-                <svg className="w-full h-24 sm:h-28 overflow-visible" fill="none" viewBox="0 0 320 80">
-                  <path d="M0 65 Q 40 50, 80 58 T 160 38 T 240 25 T 320 10" fill="none" stroke="#2e694b" strokeLinecap="round" strokeWidth="3" />
-                  <path d="M0 65 Q 40 50, 80 58 T 160 38 T 240 25 T 320 10 L 320 80 L 0 80 Z" fill="url(#co2-g)" opacity="0.3" />
-                  <circle cx="80" cy="58" r="4" fill="white" stroke="#2e694b" strokeWidth="2" />
-                  <circle cx="160" cy="38" r="4" fill="white" stroke="#2e694b" strokeWidth="2" />
-                  <circle cx="240" cy="25" r="4" fill="white" stroke="#2e694b" strokeWidth="2" />
-                  <circle cx="320" cy="10" r="5" fill="#2e694b" stroke="white" strokeWidth="2" />
-                  <defs>
-                    <linearGradient id="co2-g" x1="0" y1="0" x2="0" y2="80" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#2e694b" />
-                      <stop offset="1" stopColor="#2e694b" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="flex justify-between text-label-xs sm:text-label-sm text-outline mt-2">
-                  {['T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => <span key={d}>{d}</span>)}
-                  <span className="font-semibold text-primary">CN</span>
-                </div>
-              </div>
+              <ul className="my-space-lg divide-y divide-outline-variant/30">
+                {TRADE_IN_RATES.map(r => (
+                  <li key={r.id} className="flex items-center justify-between gap-space-md py-2">
+                    <span className="flex items-center gap-space-xs min-w-0">
+                      <span className="material-symbols-outlined text-[18px] text-secondary shrink-0">{r.icon}</span>
+                      <span className="min-w-0">
+                        <span className="block text-body-sm font-medium truncate">{r.shortName}</span>
+                        <span className="block text-[11px] text-on-surface-variant truncate">{r.desc}</span>
+                      </span>
+                    </span>
+                    <span className="text-label-md font-bold text-primary shrink-0">{r.rate} {r.unit}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="flex items-center justify-between pt-space-md border-t border-outline-variant/30">
-                <span className="text-body-sm font-medium">Mục tiêu quý này</span>
-                <span className="text-title-lg sm:text-headline-sm text-primary font-bold">78%</span>
+                <span className="text-body-sm font-medium">1 điểm xanh ≈</span>
+                <span className="text-title-lg sm:text-headline-sm text-primary font-bold">{POINT_VALUE_VND.toLocaleString('vi-VN')}đ</span>
               </div>
             </div>
           </div>
@@ -246,7 +240,7 @@ export default function Home() {
             <div className="flex items-end justify-between mb-space-lg sm:mb-space-xl">
               <div>
                 <span className="text-label-sm sm:text-label-md text-secondary uppercase tracking-widest font-semibold">Gợi ý cho bạn</span>
-                <h2 className="text-title-lg sm:text-headline-md text-primary mt-0.5 tracking-tight font-bold">Sản phẩm bạn sắp đổi được</h2>
+                <h2 className="text-title-lg sm:text-headline-md text-primary mt-0.5 tracking-tight font-bold">Quà độc quyền đổi bằng điểm xanh</h2>
               </div>
               <Link to="/cua-hang" className="text-label-sm sm:text-label-lg text-secondary font-semibold hover:text-primary transition-colors flex items-center gap-1 shrink-0">
                 Xem tất cả <span className="material-symbols-outlined icon-sm">arrow_forward</span>
@@ -269,13 +263,13 @@ export default function Home() {
             <div className="relative z-10 flex flex-col max-w-xl text-left">
               <div className="inline-flex items-center gap-space-xs justify-start mb-space-xs">
                 <span className="material-symbols-outlined icon-sm sm:icon-md text-primary">campaign</span>
-                <span className="text-label-xs sm:text-label-md text-on-secondary-fixed-variant uppercase tracking-wider font-bold">Chiến dịch trọng điểm</span>
+                <span className="text-label-xs sm:text-label-md text-on-secondary-fixed-variant uppercase tracking-wider font-bold">Dự án thí điểm</span>
               </div>
               <h2 className="text-headline-sm sm:text-headline-md md:text-headline-lg text-primary font-bold tracking-tight">
-                Tham gia dự án làm sạch Việt Nam
+                Cho quần áo cũ và bã cà phê một vòng đời mới
               </h2>
               <p className="text-body-sm sm:text-body-md text-on-secondary-container mt-space-xs leading-relaxed">
-                Góp sức cùng 40+ tổ chức đối tác nhằm dọn sạch các bãi rác tự phát và trồng thêm 50.000 cây đước chắn sóng tại miền duyên hải.
+                Dự án khởi nghiệp của nhóm sinh viên Ví Xanh. Xem đồ bạn gửi được xử lý ra sao và tiến độ đợt thu gom đầu tiên.
               </p>
             </div>
             <Link
