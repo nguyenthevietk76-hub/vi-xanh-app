@@ -113,7 +113,7 @@ export default function UserMenu() {
                     key={n.id}
                     onClick={() => handleNotifClick(n)}
                     className={`px-4 py-3 cursor-pointer transition-colors hover:bg-surface-container-low flex items-start gap-3 ${
-                      !n.readAt ? 'bg-primary-container/15' : ''
+                      !n.readAt ? 'bg-eco-tint/40' : ''
                     }`}
                   >
                     <span className="material-symbols-outlined text-primary text-[20px] mt-0.5 shrink-0">

@@ -162,7 +162,7 @@ export default function ProductDetail() {
 
           {/* Price block */}
           {exclusive ? (
-          <div className="bg-primary-container/50 border border-leaf-green/30 rounded-card p-space-md sm:p-space-lg mb-space-lg">
+          <div className="bg-eco-tint/50 border border-leaf-green/30 rounded-card p-space-md sm:p-space-lg mb-space-lg">
             <div className="flex items-center gap-space-sm">
               <span className="material-symbols-outlined text-[28px] text-secondary">eco</span>
               <span className="text-headline-lg-mobile sm:text-headline-lg text-primary font-bold">
@@ -193,7 +193,7 @@ export default function ProductDetail() {
                 </span>
               )}
               {bonusPoints > 0 && (
-                <span className="text-[11px] font-semibold text-leaf-green bg-primary-container/80 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] font-semibold text-leaf-green bg-eco-tint/80 px-1.5 py-0.5 rounded">
                   +{bonusPoints} điểm khi mua
                 </span>
               )}
@@ -294,7 +294,7 @@ export default function ProductDetail() {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddToCart}
                   disabled={outOfStock || adding}
-                  className="flex-1 h-12 rounded-input border-2 border-primary text-primary bg-primary-container/30 font-bold text-label-lg flex items-center justify-center gap-1.5 hover:bg-primary-container/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  className="flex-1 h-12 rounded-input border-2 border-primary text-primary bg-eco-tint/30 font-bold text-label-lg flex items-center justify-center gap-1.5 hover:bg-eco-tint/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   <span className="material-symbols-outlined text-[20px]">add_shopping_cart</span>
                   Thêm vào giỏ
@@ -319,7 +319,7 @@ export default function ProductDetail() {
 
       {/* Shop */}
       <div className="bg-surface-container-lowest rounded-card shadow-subtle border border-outline-variant/30 p-space-md sm:p-space-lg mt-space-lg flex items-center gap-space-md">
-        <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 rounded-full bg-eco-tint flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-primary">storefront</span>
         </div>
         <div className="min-w-0">

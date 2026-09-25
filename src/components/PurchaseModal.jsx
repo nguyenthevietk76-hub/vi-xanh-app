@@ -124,7 +124,7 @@ export default function PurchaseModal() {
               </div>
 
               <div className="p-space-xl space-y-space-lg">
-                <div className="bg-primary-container/50 border border-leaf-green/30 rounded-card p-space-md text-center">
+                <div className="bg-eco-tint/50 border border-leaf-green/30 rounded-card p-space-md text-center">
                   <p className="text-label-md text-primary font-semibold">
                     Đơn #{orderResult.orderCode} đã được tạo — trạng thái "Chờ xử lý"
                   </p>
@@ -170,7 +170,7 @@ export default function PurchaseModal() {
                     <button
                       type="button"
                       onClick={handleCopyContent}
-                      className="flex items-center gap-1 font-bold text-primary bg-primary-container/40 px-2.5 py-1 rounded-nested hover:bg-primary-container/70 transition-colors"
+                      className="flex items-center gap-1 font-bold text-primary bg-eco-tint/40 px-2.5 py-1 rounded-nested hover:bg-eco-tint/70 transition-colors"
                     >
                       {orderResult.orderCode}
                       <span className="material-symbols-outlined text-[16px]">
@@ -286,7 +286,7 @@ export default function PurchaseModal() {
             </label>
 
             {/* Green Points Bonus Banner */}
-            <div className="bg-primary-container/70 border border-leaf-green/30 rounded-card p-space-md flex items-center gap-space-md">
+            <div className="bg-eco-tint/70 border border-leaf-green/30 rounded-card p-space-md flex items-center gap-space-md">
               <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-on-primary text-[20px]">eco</span>
               </div>
@@ -358,7 +358,7 @@ export default function PurchaseModal() {
                     onClick={() => setPaymentMethod(pm.id)}
                     className={`p-2.5 rounded-nested border text-center transition-all flex flex-col items-center gap-1 ${
                       paymentMethod === pm.id
-                        ? 'border-primary bg-primary-container/40 text-primary font-bold'
+                        ? 'border-primary bg-eco-tint/40 text-primary font-bold'
                         : 'border-outline-variant/60 bg-surface-container-low text-on-surface-variant hover:border-outline'
                     }`}
                   >

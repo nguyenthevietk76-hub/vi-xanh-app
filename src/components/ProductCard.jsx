@@ -102,7 +102,7 @@ export default function ProductCard({ product, className = '' }) {
             <div className="flex items-center justify-between gap-1 text-body-sm text-secondary mb-2">
               {maxDiscountVND > 0 && <span>Dùng điểm giảm đến {maxDiscountVND.toLocaleString('vi-VN')}đ</span>}
               {bonusPoints > 0 && (
-                <span className="text-[11px] font-semibold text-leaf-green bg-primary-container/80 px-1.5 py-0.5 rounded shrink-0">
+                <span className="text-[11px] font-semibold text-leaf-green bg-eco-tint/80 px-1.5 py-0.5 rounded shrink-0">
                   +{bonusPoints} điểm
                 </span>
               )}

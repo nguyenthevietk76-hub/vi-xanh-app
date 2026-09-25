@@ -179,7 +179,7 @@ export default function Checkout() {
                 <button
                   type="button"
                   onClick={() => { navigator.clipboard?.writeText(result.orderCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  className="flex items-center gap-1 font-bold text-primary bg-primary-container/40 px-2.5 py-1 rounded-nested"
+                  className="flex items-center gap-1 font-bold text-primary bg-eco-tint/40 px-2.5 py-1 rounded-nested"
                 >
                   {result.orderCode}
                   <span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span>
@@ -304,7 +304,7 @@ export default function Checkout() {
                   type="button"
                   onClick={() => setPaymentMethod(pm.id)}
                   className={`w-full flex items-center gap-space-sm p-space-md rounded-nested border text-left transition-colors ${
-                    paymentMethod === pm.id ? 'border-primary bg-primary-container/40 text-primary font-semibold' : 'border-outline-variant/60 hover:border-outline'
+                    paymentMethod === pm.id ? 'border-primary bg-eco-tint/40 text-primary font-semibold' : 'border-outline-variant/60 hover:border-outline'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[20px]">{pm.icon}</span>

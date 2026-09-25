@@ -220,6 +220,10 @@
    UTILITIES
    ══════════════════════════════════════════ */
 @layer utilities {
+  /* Ẩn thanh cuộn nhưng vẫn cuộn được (dải tab, danh mục trượt ngang) */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
   .text-balance {
     text-wrap: balance;
   }
