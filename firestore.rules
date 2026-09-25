@@ -259,6 +259,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Giỏ hàng — chỉ chủ tài khoản đọc/ghi; chỉ lưu mã sản phẩm + số lượng
+    // (giá luôn được đọc lại từ products khi thanh toán).
+    match /carts/{userId}/items/{productId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.keys().hasOnly(['productId', 'qty', 'addedAt'])
+                    && request.resource.data.productId == productId
+                    && request.resource.data.qty is int
+                    && request.resource.data.qty >= 1
+                    && request.resource.data.qty <= 99;
+    }
+
     // Thông báo trong app
     // Chỉ được gửi khi có quan hệ thật: admin → bất kỳ ai, hoặc người mua ↔ brand
     // của CÙNG một đơn hàng (orderId). Link chỉ được là đường dẫn nội bộ.

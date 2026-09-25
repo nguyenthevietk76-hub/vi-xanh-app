@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import { WalletBadge } from './WalletPointCounter';
-import { useApp } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import UserMenu from './UserMenu';
 
 const navItems = [
@@ -13,8 +13,7 @@ const navItems = [
 
 export default function TopNav() {
   const navigate = useNavigate();
-  const { cart } = useApp();
-  const cartItemCount = cart.reduce((acc, item) => acc + (item.qty || 1), 0);
+  const { count: cartItemCount } = useCart();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-nav">
@@ -50,7 +49,7 @@ export default function TopNav() {
 
           {/* Cart Button */}
           <button
-            onClick={() => navigate('/cua-hang')}
+            onClick={() => navigate('/gio-hang')}
             className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-surface-container-lowest border border-outline-variant/60 flex items-center justify-center hover:bg-surface-container-low transition-colors text-primary shrink-0"
             title="Giỏ hàng"
           >

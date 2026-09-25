@@ -6,13 +6,31 @@ import ProductCard from '../components/ProductCard';
 import Chip from '../components/Chip';
 import ScrollReveal from '../components/ScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 
+// Chuẩn hoá để tìm kiếm không phân biệt dấu/hoa thường ("binh" khớp "Bình")
+function normalize(str = '') {
+  return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+}
+
 export default function Store() {
-  const { products: mockProducts, wallet, cart, openPurchaseModal } = useApp();
+  const { products: mockProducts } = useApp();
+  const { items: cartItems, count: cartCount } = useCart();
   const navigate = useNavigate();
+
+  // Từ khoá tìm kiếm lưu trên URL (?q=...) để chia sẻ / quay lại được
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') || '';
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  useEffect(() => { setSearchInput(searchQuery); }, [searchQuery]);
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const q = searchInput.trim();
+    setSearchParams(q ? { q } : {});
+  };
 
   // P2-1: Giới hạn query sản phẩm do brand đăng và lắng nghe real-time
   const [brandProducts, setBrandProducts] = useState([]);
@@ -33,6 +51,15 @@ export default function Store() {
   const filtered = useMemo(() => {
     let result = [...products];
 
+    // Tìm kiếm theo tên, danh mục, shop, mô tả
+    const terms = normalize(searchQuery).split(/\s+/).filter(Boolean);
+    if (terms.length) {
+      result = result.filter(p => {
+        const hay = normalize([p.name, p.category, p.brandName, p.description, p.desc].filter(Boolean).join(' '));
+        return terms.every(t => hay.includes(t));
+      });
+    }
+
     // Tab filter
     if (activeTab === 'sale') result = result.filter(p => p.badge === 'sale' || p.priceOriginal);
     else if (activeTab === 'points-only') result = result.filter(p => p.points <= 150 || p.badge === 'points-only');
@@ -48,7 +75,7 @@ export default function Store() {
     else result.sort((a, b) => b.weeklyRedeemed - a.weeklyRedeemed);
 
     return result;
-  }, [products, activeTab, selectedCategory, sortBy]);
+  }, [products, activeTab, selectedCategory, sortBy, searchQuery]);
 
   // P2-1: Phân trang sản phẩm
   const ITEMS_PER_PAGE = 9;
@@ -56,7 +83,7 @@ export default function Store() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedCategory, sortBy]);
+  }, [activeTab, selectedCategory, sortBy, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginatedProducts = useMemo(() => {
@@ -142,6 +169,32 @@ export default function Store() {
           </div>
         ))}
       </div>
+
+      {/* Search */}
+      <form onSubmit={submitSearch} role="search" className="flex items-center gap-space-xs bg-surface-container-lowest rounded-input shadow-subtle border border-outline-variant/60 focus-within:border-primary p-1 pl-space-md mb-space-md sm:mb-space-lg">
+        <span className="material-symbols-outlined text-[20px] text-on-surface-variant">search</span>
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Tìm sản phẩm, danh mục hoặc shop…"
+          aria-label="Tìm kiếm sản phẩm"
+          className="flex-1 min-w-0 bg-transparent py-2 text-body-md focus:outline-none"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchParams({})}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low"
+            aria-label="Xoá tìm kiếm"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        )}
+        <button type="submit" className="h-10 px-4 sm:px-6 bg-primary text-on-primary rounded-input font-bold text-label-md hover:bg-secondary transition-colors">
+          Tìm
+        </button>
+      </form>
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 mb-space-md sm:mb-space-xl">
@@ -230,7 +283,9 @@ export default function Store() {
           {/* Results Header */}
           <div className="flex items-center justify-between mb-space-lg">
             <span className="text-body-md text-on-surface-variant">
-              Hiển thị {filtered.length} sản phẩm
+              {searchQuery
+                ? <>Tìm thấy {filtered.length} sản phẩm cho "<strong className="text-on-surface">{searchQuery}</strong>"</>
+                : <>Hiển thị {filtered.length} sản phẩm</>}
             </span>
             <select
               value={sortBy}
@@ -309,7 +364,7 @@ export default function Store() {
 
       {/* Floating Cart Bar if cart has items */}
       <AnimatePresence>
-        {cart.length > 0 && (
+        {cartCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -322,20 +377,18 @@ export default function Store() {
               </div>
               <div>
                 <p className="text-label-md font-bold">
-                  {cart.reduce((s, i) => s + (i.qty || 1), 0)} sản phẩm trong giỏ
+                  {cartCount} sản phẩm trong giỏ
                 </p>
                 <p className="text-body-sm text-[#DCEEDF]">
-                  Tổng: {cart.reduce((s, i) => s + ((i.priceVND || 0) * (i.qty || 1)), 0).toLocaleString('vi-VN')}đ
+                  Tổng: {cartItems.reduce((s, i) => s + (i.unavailable ? 0 : (i.product?.priceVND || 0) * i.qty), 0).toLocaleString('vi-VN')}đ
                 </p>
               </div>
             </div>
             <button
-              onClick={() => {
-                if (cart[0]) openPurchaseModal(cart[0]);
-              }}
+              onClick={() => navigate('/gio-hang')}
               className="px-4 py-2 bg-secondary-fixed text-primary rounded-input font-bold text-label-md hover:bg-white transition-colors flex items-center gap-1.5"
             >
-              Thanh toán ngay
+              Xem giỏ hàng
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </motion.div>

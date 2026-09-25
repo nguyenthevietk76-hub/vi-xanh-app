@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import Chip from './Chip';
 import { calcBonusPoints } from '../lib/points';
 
 export default function ProductCard({ product, className = '' }) {
-  const { wallet, redeemProduct, addToCart, openPurchaseModal, openTradeIn } = useApp();
+  const { wallet, redeemProduct, openPurchaseModal, openTradeIn } = useApp();
+  const { addToCart } = useCart();
   const [hasError, setHasError] = useState(false);
 
   const canAfford = wallet.points >= product.points;
@@ -38,12 +41,13 @@ export default function ProductCard({ product, className = '' }) {
     >
       {/* Image Container */}
       <div className="relative bg-surface-container-low p-3 m-3 rounded-nested aspect-square overflow-hidden">
+        <Link to={`/san-pham/${product.id}`} aria-label={`Xem chi tiết ${product.name}`} className="absolute inset-0 z-0" />
         <img
           src={hasError ? '/images/products/binh_giu_nhiet.jpg' : (product.image || '/images/products/binh_giu_nhiet.jpg')}
           alt={product.name}
           loading="lazy"
           onError={() => setHasError(true)}
-          className="w-full h-full object-cover rounded-nested-sm transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover rounded-nested-sm transition-transform duration-300 group-hover:scale-105 pointer-events-none"
         />
         {/* Badge */}
         {badge && (
@@ -83,7 +87,7 @@ export default function ProductCard({ product, className = '' }) {
 
         {/* Name */}
         <h3 className="text-title-md text-on-surface font-semibold leading-snug mb-1.5 line-clamp-2 min-h-[44px]">
-          {product.name}
+          <Link to={`/san-pham/${product.id}`} className="hover:text-primary transition-colors">{product.name}</Link>
         </h3>
 
         {/* Price Row */}

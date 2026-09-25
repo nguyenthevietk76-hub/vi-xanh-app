@@ -19,7 +19,6 @@ const initialState = {
   },
   transactions: INITIAL_TRANSACTIONS,
   products: PRODUCTS,
-  cart: [],
   impact: INITIAL_IMPACT,
   vouchers: VOUCHERS,
   milestones: MILESTONES,
@@ -33,8 +32,6 @@ const ACTIONS = {
   TRADE_IN: 'TRADE_IN',
   REDEEM_PRODUCT: 'REDEEM_PRODUCT',
   BUY_PRODUCT: 'BUY_PRODUCT',
-  ADD_TO_CART: 'ADD_TO_CART',
-  REMOVE_FROM_CART: 'REMOVE_FROM_CART',
   OPEN_TRADE_IN: 'OPEN_TRADE_IN',
   CLOSE_TRADE_IN: 'CLOSE_TRADE_IN',
   OPEN_PURCHASE_MODAL: 'OPEN_PURCHASE_MODAL',
@@ -110,32 +107,6 @@ function appReducer(state, action) {
         },
       };
     }
-
-    case ACTIONS.ADD_TO_CART: {
-      const existing = state.cart.find(item => item.id === action.payload.id);
-      if (existing) {
-        return {
-          ...state,
-          cart: state.cart.map(item =>
-            item.id === action.payload.id ? { ...item, qty: item.qty + 1 } : item
-          ),
-        };
-      }
-      return {
-        ...state,
-        cart: [...state.cart, { ...action.payload, qty: 1 }],
-        toast: {
-          type: 'success',
-          message: `"${action.payload.name}" đã thêm vào giỏ!`,
-        },
-      };
-    }
-
-    case ACTIONS.REMOVE_FROM_CART:
-      return {
-        ...state,
-        cart: state.cart.filter(item => item.id !== action.payload),
-      };
 
     case ACTIONS.OPEN_PURCHASE_MODAL:
       return { ...state, purchaseModalProduct: action.payload };
@@ -359,9 +330,11 @@ export function AppProvider({ children }) {
   }, [user]);
 
   const buyProduct = useCallback(async (payload) => {
-    const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD' } = payload;
-    // Mã đơn ngắn dùng làm nội dung chuyển khoản (đối chiếu với mã QR VietQR)
-    const orderCode = generateOrderCode();
+    // silent: dùng khi thanh toán giỏ hàng — không hiện toast từng đơn, lỗi trả về { error }
+    const { product, quantity = 1, customerInfo = {}, paymentMethod = 'COD', silent = false } = payload;
+    // Mã đơn ngắn dùng làm nội dung chuyển khoản (đối chiếu với mã QR VietQR).
+    // Thanh toán giỏ hàng truyền chung 1 mã cho mọi đơn để chuyển khoản 1 lần.
+    const orderCode = payload.orderCode || generateOrderCode();
     const payloadWithCode = { ...payload, orderCode };
 
     // Sản phẩm demo (không có brandId) — giữ nguyên hành vi cũ, chỉ xử lý cục bộ
@@ -370,16 +343,16 @@ export function AppProvider({ children }) {
       return { orderCode, totalVND: (product.priceVND || 0) * quantity };
     }
 
-    if (!user) {
-      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Vui lòng đăng nhập để đặt mua sản phẩm này.' } });
+    const fail = (message) => {
+      if (silent) return { error: message };
+      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message } });
       return null;
-    }
+    };
+
+    if (!user) return fail('Vui lòng đăng nhập để đặt mua sản phẩm này.');
 
     // firestore.rules chặn brand tự mua sản phẩm của chính mình
-    if (product.brandId === user.uid) {
-      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: 'Bạn không thể mua sản phẩm của chính brand mình.' } });
-      return null;
-    }
+    if (product.brandId === user.uid) return fail('Bạn không thể mua sản phẩm của chính brand mình.');
 
     try {
       const orderRef = doc(collection(db, 'orders'));
@@ -446,6 +419,8 @@ export function AppProvider({ children }) {
         console.warn('Không thể tạo thông báo đơn hàng mới:', errNotif);
       }
 
+      if (silent) return { orderCode, totalVND, bonusPoints };
+
       const bonusText = bonusPoints > 0 ? ` +${bonusPoints} điểm xanh sẽ được cộng khi đơn hoàn tất.` : '';
       dispatch({
         type: ACTIONS.SHOW_TOAST,
@@ -458,8 +433,7 @@ export function AppProvider({ children }) {
       });
       return { orderCode, totalVND };
     } catch (err) {
-      dispatch({ type: ACTIONS.SHOW_TOAST, payload: { type: 'error', message: err.message || 'Đặt mua thất bại, thử lại sau.' } });
-      return null;
+      return fail(err.message || 'Đặt mua thất bại, thử lại sau.');
     }
   }, [user]);
 
@@ -478,14 +452,6 @@ export function AppProvider({ children }) {
 
   const closePurchaseModal = useCallback(() => {
     dispatch({ type: ACTIONS.CLOSE_PURCHASE_MODAL });
-  }, []);
-
-  const addToCart = useCallback((product) => {
-    dispatch({ type: ACTIONS.ADD_TO_CART, payload: product });
-  }, []);
-
-  const removeFromCart = useCallback((productId) => {
-    dispatch({ type: ACTIONS.REMOVE_FROM_CART, payload: productId });
   }, []);
 
   const openTradeIn = useCallback(() => {
@@ -514,8 +480,6 @@ export function AppProvider({ children }) {
     confirmOrderPayment,
     openPurchaseModal,
     closePurchaseModal,
-    addToCart,
-    removeFromCart,
     openTradeIn,
     closeTradeIn,
     showToast,

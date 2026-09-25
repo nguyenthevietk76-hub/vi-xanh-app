@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { CartProvider } from './context/CartContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { lazy, Suspense, useEffect } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -22,6 +23,9 @@ const Wallet = lazy(() => import('./pages/Wallet'));
 const BrandRegister = lazy(() => import('./pages/BrandRegister'));
 const BrandDashboard = lazy(() => import('./pages/BrandDashboard'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Checkout = lazy(() => import('./pages/Checkout'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -45,6 +49,9 @@ function AnimatedRoutes() {
           <Routes location={location}>
             <Route path="/" element={<Home />} />
             <Route path="/cua-hang" element={<Store />} />
+            <Route path="/san-pham/:id" element={<ProductDetail />} />
+            <Route path="/gio-hang" element={<Cart />} />
+            <Route path="/thanh-toan" element={<Checkout />} />
             <Route path="/du-an" element={<Project />} />
             <Route path="/vi-cua-toi" element={<Wallet />} />
             <Route path="/brand/dang-ky" element={<BrandRegister />} />
@@ -69,6 +76,7 @@ export default function App() {
       <AuthProvider>
         <NotificationProvider>
           <AppProvider>
+          <CartProvider>
             <div className="min-h-screen flex flex-col bg-surface-container-high font-sans text-body-md text-on-surface antialiased">
               <ScrollToTop />
               <TopNav />
@@ -83,6 +91,7 @@ export default function App() {
               <PurchaseModal />
               <Toast />
             </div>
+          </CartProvider>
           </AppProvider>
         </NotificationProvider>
       </AuthProvider>
